@@ -113,7 +113,7 @@ if __name__ == '__main__':
     mydb = myclient["rosbag"]
     mycol = None
     for name in mydb.list_collection_names():
-        if(name == args.collection)
+        if(name == args.collection):
             mycol = mydb[args.collection]
         #if(name == "rosbag"):
             #mycol = mydb["rosbag"]
