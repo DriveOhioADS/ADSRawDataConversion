@@ -6,7 +6,8 @@ from rospy_message_converter import message_converter
 from datetime import datetime
 import pyprog
 import argparse
-
+import sensor_msgs.point_cloud2 as pc2
+import numpy as np
 def generateMetaData(rosbagdata, vehicleID, experimentnumber, other):
     starttime = rosbagdata.get_start_time()
     endtime = rosbagdata.get_end_time()
@@ -41,17 +42,20 @@ def insertMetaData(dbconn, metadata):
 
 count = 0
 
-def generateFilteredTopicList(rosbagfile):
+def generateFilteredTopicList(rosbagfile, PointCloud2=False):
     banned = ['sensor_msgs/CompressedImage',
               'sensor_msgs/Image',
-              'sensor_msgs/PointCloud2',
               'velodyne_msgs/VelodyneScan',
               'theora_image_transport/Packet',
               'sensor_msgs/LaserScan',
               'autoware_lanelet2_msgs/MapBin',  # issues with insert
               'visualization_msgs/MarkerArray',  # breaks insert
               'autoware_msgs/DetectedObjectArray',  # breaks insert
+              'autoware_msgs/LaneArray',
+              '/rosout'
               ]
+    if(PointCloud2==False):
+        banned.append('sensor_msgs/PointCloud2')
 
     goodtopiclist = []
     topics = rosbagfile.get_type_and_topic_info()
@@ -65,34 +69,95 @@ def generateFilteredTopicList(rosbagfile):
             #print("adding: " + tp[0])
             goodtopiclist.append(tp[0])
         else:
-            print("skip: " + tp[0])
+            print("skip: " + tp[0] + " => " + tp[1].msg_type)
     return goodtopiclist
 
-
-def insertMessagesByTopicFilter(collection, rsobagfile, goodtopiclist, newmeta_id, prog):
+# def insertLiDARMessages(collection, rosbagfile, newmeta_id):
+#     print("Processing LiDAR data")
+#     topics = rosbagfile.get_type_and_topic_info()
+#     topiclist = topics.topics
+#     for t in topiclist.items():
+#         if (t[1].msg_type == 'sensor_msgs/PointCloud2'):
+#             print(t)
+#     #/points_raw
+#     count = 0
+#     for topic, msg, t in rosbagfile.read_messages(topics='/points_raw'):
+#         msgdict = message_converter.convert_ros_message_to_dictionary(msg)
+#
+#         pcread = pc2.read_points(msg, skip_nans=True, field_names=("x", "y", "z"))
+#         ptlist = list(pcread)
+#
+#         newitem = {"topic": topic,
+#                    "timeField": datetime.utcfromtimestamp(t.secs + (t.nsecs/10e6)),
+#                    "size": len(msgdict),
+#                    "msg_type": msg._type,
+#                    "metadataID": newmeta_id,
+#                    "pointcloud": ptlist}
+#         msgdict.pop('data')
+#         result = newitem.update(msgdict)
+#         try:
+#             mycol.insert_one(newitem)
+#             count = count + 1
+#             # print(count)
+#             #prog.set_stat(count)
+#             #prog.update()
+#         except pymongo.errors.OperationFailure:
+#             print("\nerror with message " + msg)
+#             return -1
+#         except pymongo.errors.DocumentTooLarge:
+#             print("\nTopic too large " + topic)
+#             return -1
+#         except:
+#             print("\nError with message of topic " + topic)
+#             return -1
+#     return count
+def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_id, prog, LiDARbool):
     count = 0
-    for topic, msg, t in rsobagfile.read_messages(topics=goodtopiclist):
+    for topic, msg, t in rosbagfile.read_messages(topics=goodtopiclist):
         msgdict = message_converter.convert_ros_message_to_dictionary(msg)
+
         newitem = {"topic": topic,
-                   "timeField": datetime.utcfromtimestamp(t.secs + (t.nsecs/10e6)),
+                   "timeField": datetime.utcfromtimestamp(t.secs + (t.nsecs / 10e6)),
                    "size": len(msgdict),
                    "msg_type": msg._type,
                    "metadataID": newmeta_id}
-        result = newitem.update(msgdict)
+
+        if(LiDARbool and msg._type == 'sensor_msgs/PointCloud2'):
+            pcread = pc2.read_points(msg, skip_nans=True, field_names=("x", "y", "z"))
+            ptlist = list(pcread)
+            msgdict.pop('data')
+            xdata = []
+            ydata = []
+            zdata = []
+            for xyzpoint in ptlist:
+                xdata.append(xyzpoint[0])
+                ydata.append(xyzpoint[1])
+                zdata.append(xyzpoint[2])
+
+            #xdict = {'x': xdata}
+            pdata_dict = {}
+            pdata_dict["PointCloud2"] = {'x': xdata, 'y': ydata, 'z': zdata}
+
+            newitem.update(pdata_dict)
+        else:
+            result = newitem.update(msgdict)
         try:
-            mycol.insert_one(newitem)
+            iresult = mycol.insert_one(newitem)
             count = count + 1
             # print(count)
             prog.set_stat(count)
             prog.update()
         except pymongo.errors.OperationFailure:
-            print("\nerror with message " + msg)
+            print("\nOpFail Error with message " + msg + " => " + msg._type)
             return -1
         except pymongo.errors.DocumentTooLarge:
-            print("\nTopic too large " + topic)
+            print("\nTopic too large " + topic + " => " + msg._type)
             return -1
-        except:
-            print("\nError with message of topic " + topic)
+        except Exception as ex:
+            print("\nError with message of topic " + topic + " => " + msg._type)
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print(message)
             return -1
     return count
 
@@ -104,6 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--vehicleid', type=int, help='vehicle ID', required=True)
     parser.add_argument('-e', '--experimentid', type=int, help='experiment ID', required=True)
     parser.add_argument('-c', '--collection', default='rosbag', help='Collection Name', required=False)
+    parser.add_argument('--lidar', default='', dest='lidar', action='store_true', help='Insert LiDAR', required=False)
     parser.add_argument('--force', default=False, dest='force', action='store_true', help='force insert')
     args = parser.parse_args()
 
@@ -115,41 +181,49 @@ if __name__ == '__main__':
     for name in mydb.list_collection_names():
         if(name == args.collection):
             mycol = mydb[args.collection]
-        #if(name == "rosbag"):
-            #mycol = mydb["rosbag"]
+            print("Found collection: " + name)
             break
 
-    #mycol = mydb["rosbag"]
-    #mycol.drop()
     if(mycol == None):
-        print("Creating the collection...")
-        mydb.create_collection("rosbag", timeseries={'timeField': 'timeField'})
+        print("Creating the collection: " + args.collection)
+        mydb.create_collection(args.collection, timeseries={'timeField': 'timeField'})
+        mycol = mydb[args.collection]
 
     print("Loading rosbag")
-    bag = rosbag.Bag(args.rosbag)#'DATA_CE_Test_0079.bag')
-    #bag = rosbag.Bag('ADS_Deployment1_Bucket3_Mary_2022-04-25-15-35-30.bag')
+    bag = rosbag.Bag(args.rosbag)
+
+    IncludeLiDAR = False
+    if(args.lidar):
+        IncludeLiDAR = True
+        print("Including PointCloud2 LiDAR data")
+        # print("Inserting LiDAR # -> ")
+        # #prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
+        # #prog.update()
+        # insertLiDARMessages(mycol, bag, newmeta_id=0)
+        # #prog.end()
+        # bag.close()
+    else:
+        print("Skipping LiDAR messages")
 
     print("Scanning messages")
-    selecttopiclist = generateFilteredTopicList(bag)
+    selecttopiclist = generateFilteredTopicList(bag, PointCloud2=IncludeLiDAR)
     num_msg = bag.get_message_count(selecttopiclist)
 
-
-    bagmetadata = generateMetaData(bag, vehicleID=args.vehicleid, experimentnumber=args.experimentid, other={'selectedtopics':selecttopiclist})
+    bagmetadata = generateMetaData(bag, vehicleID=args.vehicleid, experimentnumber=args.experimentid,
+                                   other={'selectedtopics': selecttopiclist})
     dataexists = checkExistingMetaData(mydb, bagmetadata)
-    if(args.force==False and dataexists):
+    if (args.force == False and dataexists):
         print("metadata already present")
         sys.exit()
-    elif(args.force==1 and dataexists):
+    elif (args.force == 1 and dataexists):
         newmeta_id = dataexists
     else:
         print("inserting the metadata tag")
         newmeta_id = insertMetaData(mydb, bagmetadata)
-
-
     print("Inserting data # -> " + str(num_msg))
     prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
     prog.update()
-    insertMessagesByTopicFilter(mycol, bag, selecttopiclist, newmeta_id, prog)
+    insertMessagesByTopicFilter(mycol, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
     prog.end()
     bag.close()
 
