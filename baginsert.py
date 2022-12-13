@@ -1,5 +1,8 @@
 import sys
 import rosbag
+import boto3
+from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 import pymongo
 import json
 from rospy_message_converter import message_converter
@@ -8,6 +11,173 @@ import pyprog
 import argparse
 import sensor_msgs.point_cloud2 as pc2
 import numpy as np
+import uuid
+from decimal import Decimal
+
+class DatabaseInterface:
+    def __init__(self, uristring):
+        self.uristring = uristring
+        self.cname = None
+
+    def check(self):
+        print("class check")
+
+    def db_connect(self):
+        print("Connecting")
+
+    def db_insert(self, collection_name, newdata):
+        print("Inserting data")
+
+    def setCollectionName(self, cname):
+        self.cname = cname
+
+
+class DatabaseMongo(DatabaseInterface):
+    def __init__(self, uristring):
+        super().__init__(uristring)
+        self.mycol = None
+        self.mydb = None
+        self.myclient = None
+        self.dname = "rosbag"
+        self.cname = "rosbag"
+        print("init")
+
+    def db_insert_main(self, newdata):
+        return self.db_insert(self.cname, newdata)
+
+    def db_insert(self, collection_name, newdata):
+        return self.mydb[collection_name].insert_one(newdata)
+
+    def db_connect(self):
+        myclient = pymongo.MongoClient(self.uristring)  # "mongodb://localhost:27017/")
+        mydb = myclient["rosbag"]
+        mycol = None
+        for name in mydb.list_collection_names():
+            print(name)
+            if (name == self.cname):
+                mycol = mydb[self.cname]
+                print("Found collection: " + name)
+                break
+
+        if (mycol == None):
+            print("Creating the collection: " + args.collection)
+            mydb.create_collection(args.collection, timeseries={'timeField': 'timeField'})
+            mycol = mydb[self.cname]
+
+        self.myclient = myclient
+        self.mydb = mydb
+        self.mycol = mycol
+
+    def db_find(self, cname, sdata):
+        result = self.mydb[cname].find_one(sdata)
+        if result != None:
+            return result["_id"]
+        return None
+
+    # def insert_metadata(self, metadata):
+    #     result = self.mydb[self.dname]["metadata"].insert_one(metadata)
+    #     if result != None:
+    #         return result.inserted_id
+    #     return None
+
+
+def generate_unique_id():
+    return uuid.uuid1()
+
+
+class DatabaseDynamo(DatabaseInterface):
+    def __init__(self, uristring):
+        super().__init__(uristring)
+        print("DynamoDB init")
+
+        self.ddb = None
+
+    def db_connect(self):
+        print("connecting to dynamodb")
+        # client = boto3.client('dynamodb')
+        # ddb = boto3.client('dynamodb', endpoint_url='http://172.31.144.1:8000',
+        #                     aws_access_key_id="anything",
+        #                     aws_secret_access_key="anything",
+        #                     region_name="us-west-2",)
+        ddb = boto3.resource('dynamodb', endpoint_url='http://172.31.144.1:8000',
+                             aws_access_key_id="anything",
+                             aws_secret_access_key="anything",
+                             region_name="us-west-2", )
+        tables = list(ddb.tables.all())
+        print(tables)
+        self.ddb = ddb
+
+        result = self.checkTableExistsCreateIfNot("metadata")
+        if result == 0:
+            print("Table check/create issue")
+            sys.exit()
+        result = self.checkTableExistsCreateIfNot(self.cname)
+        if result == 0:
+            print("Table check/create issue")
+            sys.exit()
+
+    def db_find(self, cname, sdata):
+
+        ttable = self.ddb.Table(cname)
+        try:
+            result = ttable.get_item(cname, Key=sdata)
+            return result
+        except TypeError:
+            print("cannot find item")
+            return None
+        # result = self.mydb[cname].find_one(sdata)
+        # if (result != None):
+        #    return result["_id"]
+
+    def db_insert_main(self, newdata):
+        return self.db_insert(self.cname, newdata)
+
+    def db_insert(self, collection_name, newdata):
+        ttable = self.ddb.Table(collection_name)
+        # dynamo does not support float only decimal
+        newdata = json.loads(json.dumps(newdata), parse_float=Decimal)
+
+        # new data is already in json, but needs dynamo format
+        # also we need to generate a unique ID
+
+
+        checkdata = {'id': str(generate_unique_id())}
+        checkdata.update(newdata)
+        ttable.put_item(Item=checkdata)
+
+    def checkTableExistsCreateIfNot(self, tname):
+        ddb = self.ddb
+        # dynamo only has tables, not dbs+collections, so the collection is table here
+        ttable = self.ddb.Table(tname)
+        print(f"Looking for table {tname}")
+        is_table_existing = False
+        try:
+            is_table_existing = ttable.table_status in ("CREATING", "UPDATING",
+                                                        "DELETING", "ACTIVE")
+            print(f"table {tname} already exists, no need to create")
+            return 1
+        except ClientError:
+            print(f"Missing table {tname}")
+            ttable = ddb.create_table(TableName=tname,
+                                      KeySchema=[
+                                          {
+                                              'AttributeName': 'id',
+                                              'KeyType': 'HASH'
+                                          }
+                                      ],
+                                      AttributeDefinitions=[
+                                          {
+                                              'AttributeName': 'id',
+                                              'AttributeType': 'S'
+                                          }
+                                      ],
+                                      ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
+                                      )
+            print("Waiting for table creation")
+            ttable.wait_until_exists()
+            return ttable.item_count
+
+
 def generateMetaData(rosbagdata, vehicleID, experimentnumber, other):
     starttime = rosbagdata.get_start_time()
     endtime = rosbagdata.get_end_time()
@@ -21,26 +191,31 @@ def generateMetaData(rosbagdata, vehicleID, experimentnumber, other):
                 'size': bag.size,
                 'msgnum': bag.get_message_count(),
                 'other': other,
-    }
+                }
     return metadata
 
-def checkExistingMetaData(dbconn, metadata):
+
+def checkExistingMetaData(dbobject, metadata):
     searchstring = {"filename": metadata["filename"],
                     "experimentID": metadata["experimentID"],
                     "startTime": metadata['startTime'],
                     "size": metadata['size'],
                     'msgnum': metadata['msgnum']}
-    result = dbconn["metadata"].find_one(searchstring)
-    if(result != None):
-        return result["_id"]
-    return None
+    return dbobject.db_find("metadata", metadata)
+    # result = dbconn["metadata"].find_one(searchstring)
+    # if (result != None):
+    #    return result["_id"]
+    # return None
 
-def insertMetaData(dbconn, metadata):
-    result = dbconn["metadata"].insert_one(metadata)
-    return result.inserted_id #needs to be ID of metadata
+
+def insertMetaData(dbobject, metadata):
+    return dbobject.db_insert("metadata", metadata)
+    # result = dbconn["metadata"].insert_one(metadata)
+    # return result.inserted_id  # needs to be ID of metadata
 
 
 count = 0
+
 
 def generateFilteredTopicList(rosbagfile, PointCloud2=False):
     banned = ['sensor_msgs/CompressedImage',
@@ -54,7 +229,7 @@ def generateFilteredTopicList(rosbagfile, PointCloud2=False):
               'autoware_msgs/LaneArray',
               '/rosout'
               ]
-    if(PointCloud2==False):
+    if (PointCloud2 == False):
         banned.append('sensor_msgs/PointCloud2')
 
     goodtopiclist = []
@@ -66,11 +241,12 @@ def generateFilteredTopicList(rosbagfile, PointCloud2=False):
             if (tp[1].msg_type == ban):
                 clean = 0
         if (clean):
-            #print("adding: " + tp[0])
+            # print("adding: " + tp[0])
             goodtopiclist.append(tp[0])
         else:
             print("skip: " + tp[0] + " => " + tp[1].msg_type)
     return goodtopiclist
+
 
 # def insertLiDARMessages(collection, rosbagfile, newmeta_id):
 #     print("Processing LiDAR data")
@@ -122,7 +298,7 @@ def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_i
                    "msg_type": msg._type,
                    "metadataID": newmeta_id}
 
-        if(LiDARbool and msg._type == 'sensor_msgs/PointCloud2'):
+        if (LiDARbool and msg._type == 'sensor_msgs/PointCloud2'):
             pcread = pc2.read_points(msg, skip_nans=True, field_names=("x", "y", "z"))
             ptlist = list(pcread)
             msgdict.pop('data')
@@ -134,7 +310,7 @@ def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_i
                 ydata.append(xyzpoint[1])
                 zdata.append(xyzpoint[2])
 
-            #xdict = {'x': xdata}
+            # xdict = {'x': xdata}
             pdata_dict = {}
             pdata_dict["PointCloud2"] = {'x': xdata, 'y': ydata, 'z': zdata}
 
@@ -142,7 +318,8 @@ def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_i
         else:
             result = newitem.update(msgdict)
         try:
-            iresult = mycol.insert_one(newitem)
+            dbobject.db_insert_main(newitem)
+            # iresult = mycol.insert_one(newitem)
             count = count + 1
             # print(count)
             prog.set_stat(count)
@@ -163,8 +340,10 @@ def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_i
 
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--databaseuri', help='mongodb url string', required=True)
+    parser.add_argument('--dynamodb', help='dynamo url string', required=False)
+    parser.add_argument('--mongodb', help='mongodb url string', required=False)
     parser.add_argument('-b', '--rosbag', help='rosbag file', required=True)
     parser.add_argument('-v', '--vehicleid', type=int, help='vehicle ID', required=True)
     parser.add_argument('-e', '--experimentid', type=int, help='experiment ID', required=True)
@@ -173,27 +352,32 @@ if __name__ == '__main__':
     parser.add_argument('--force', default=False, dest='force', action='store_true', help='force insert')
     args = parser.parse_args()
 
+    if (args.mongodb != None):
+        print("Connecting to database at " + args.mongodb + " / " + args.collection)
+        dbobject = DatabaseMongo(args.mongodb)
+        dbobject.check()
+        # dbobject.setCollectionName(args.collection)
+        # dbobject.db_connect()
+    elif (args.dynamodb != None):
+        print("Connecting to database at " + args.dynamodb + " / " + args.collection)
+        dbobject = DatabaseDynamo(args.dynamodb)
+        dbobject.check()
 
-    print("Connecting to mongodb at " + args.databaseuri + " / "+args.collection)
-    myclient = pymongo.MongoClient(args.databaseuri)#"mongodb://localhost:27017/")
-    mydb = myclient["rosbag"]
-    mycol = None
-    for name in mydb.list_collection_names():
-        if(name == args.collection):
-            mycol = mydb[args.collection]
-            print("Found collection: " + name)
-            break
+        # dbobject.db_connect()
+        # dbobject.db_insert('test', "test")
+        # sys.exit()
+    else:
+        print("No database specified")
+        sys.exit()
 
-    if(mycol == None):
-        print("Creating the collection: " + args.collection)
-        mydb.create_collection(args.collection, timeseries={'timeField': 'timeField'})
-        mycol = mydb[args.collection]
+    dbobject.setCollectionName(args.collection)
+    dbobject.db_connect()
 
     print("Loading rosbag")
     bag = rosbag.Bag(args.rosbag)
 
     IncludeLiDAR = False
-    if(args.lidar):
+    if (args.lidar):
         IncludeLiDAR = True
         print("Including PointCloud2 LiDAR data")
         # print("Inserting LiDAR # -> ")
@@ -211,7 +395,7 @@ if __name__ == '__main__':
 
     bagmetadata = generateMetaData(bag, vehicleID=args.vehicleid, experimentnumber=args.experimentid,
                                    other={'selectedtopics': selecttopiclist})
-    dataexists = checkExistingMetaData(mydb, bagmetadata)
+    dataexists = checkExistingMetaData(dbobject, bagmetadata)
     if (args.force == False and dataexists):
         print("metadata already present")
         sys.exit()
@@ -219,11 +403,11 @@ if __name__ == '__main__':
         newmeta_id = dataexists
     else:
         print("inserting the metadata tag")
-        newmeta_id = insertMetaData(mydb, bagmetadata)
+        newmeta_id = insertMetaData(dbobject, bagmetadata)
     print("Inserting data # -> " + str(num_msg))
     prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
     prog.update()
-    insertMessagesByTopicFilter(mycol, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
+    insertMessagesByTopicFilter(dbobject, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
     prog.end()
     bag.close()
 
