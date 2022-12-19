@@ -1,10 +1,11 @@
 import sys
 import rosbag
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 import pymongo
 import json
+from bson import json_util
 from rospy_message_converter import message_converter
 from datetime import datetime
 import pyprog
@@ -14,6 +15,9 @@ import numpy as np
 import uuid
 from decimal import Decimal
 
+
+# import datetime
+# import time
 class DatabaseInterface:
     def __init__(self, uristring):
         self.uristring = uristring
@@ -68,7 +72,7 @@ class DatabaseMongo(DatabaseInterface):
         self.mydb = mydb
         self.mycol = mycol
 
-    def db_find(self, cname, sdata):
+    def db_find_metadata(self, cname, sdata):
         result = self.mydb[cname].find_one(sdata)
         if result != None:
             return result["_id"]
@@ -89,17 +93,16 @@ class DatabaseDynamo(DatabaseInterface):
     def __init__(self, uristring):
         super().__init__(uristring)
         print("DynamoDB init")
-
         self.ddb = None
 
     def db_connect(self):
-        print("connecting to dynamodb")
+        print(f"connecting to dynamodb {self.uristring}")
         # client = boto3.client('dynamodb')
         # ddb = boto3.client('dynamodb', endpoint_url='http://172.31.144.1:8000',
         #                     aws_access_key_id="anything",
         #                     aws_secret_access_key="anything",
         #                     region_name="us-west-2",)
-        ddb = boto3.resource('dynamodb', endpoint_url='http://172.31.144.1:8000',
+        ddb = boto3.resource('dynamodb', endpoint_url=self.uristring,
                              aws_access_key_id="anything",
                              aws_secret_access_key="anything",
                              region_name="us-west-2", )
@@ -116,12 +119,18 @@ class DatabaseDynamo(DatabaseInterface):
             print("Table check/create issue")
             sys.exit()
 
-    def db_find(self, cname, sdata):
-
+    def db_find_metadata(self, cname, sdata):
+        sdata = json.loads(json.dumps(sdata), parse_float=Decimal)
+        item_to_find = sdata['startTime']
+        filter_to_find = Attr('startTime').eq(item_to_find)
         ttable = self.ddb.Table(cname)
         try:
-            result = ttable.get_item(cname, Key=sdata)
-            return result
+            result = ttable.scan(FilterExpression=filter_to_find)
+            if result['Count'] == 0:
+                return None
+            return result['Items'][0]['_id']
+            # mongo only gives ID because its not scanning
+            # change from scan to query someday
         except TypeError:
             print("cannot find item")
             return None
@@ -134,23 +143,37 @@ class DatabaseDynamo(DatabaseInterface):
 
     def db_insert(self, collection_name, newdata):
         ttable = self.ddb.Table(collection_name)
-        # dynamo does not support float only decimal
+        # dynamo does not support float only decimal, watch out for datetime
+
         newdata = json.loads(json.dumps(newdata), parse_float=Decimal)
 
         # new data is already in json, but needs dynamo format
         # also we need to generate a unique ID
-
-
-        checkdata = {'id': str(generate_unique_id())}
+        newUUID = str(generate_unique_id())
+        #print(newUUID)
+        checkdata = {'_id': newUUID}
         checkdata.update(newdata)
-        ttable.put_item(Item=checkdata)
+        try:
+            ttable.put_item(Item=checkdata)
+        except ClientError as ce:
+            print(f"\nclient error on insert {ce}")
+            sys.exit()
+        except TypeError as e:
+            print(f"\ntype error on insert {e}")
+            #sys.exit()
 
     def checkTableExistsCreateIfNot(self, tname):
         ddb = self.ddb
         # dynamo only has tables, not dbs+collections, so the collection is table here
         ttable = self.ddb.Table(tname)
         print(f"Looking for table {tname}")
+
+        timeField = 'timeField'
+        if (tname == 'metadata'):
+            timeField = 'startTime'
+
         is_table_existing = False
+        createTable = False
         try:
             is_table_existing = ttable.table_status in ("CREATING", "UPDATING",
                                                         "DELETING", "ACTIVE")
@@ -158,24 +181,40 @@ class DatabaseDynamo(DatabaseInterface):
             return 1
         except ClientError:
             print(f"Missing table {tname}")
-            ttable = ddb.create_table(TableName=tname,
-                                      KeySchema=[
-                                          {
-                                              'AttributeName': 'id',
-                                              'KeyType': 'HASH'
-                                          }
-                                      ],
-                                      AttributeDefinitions=[
-                                          {
-                                              'AttributeName': 'id',
-                                              'AttributeType': 'S'
-                                          }
-                                      ],
-                                      ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
-                                      )
-            print("Waiting for table creation")
-            ttable.wait_until_exists()
-            return ttable.item_count
+            createTable = True
+
+        if (createTable):
+            try:
+                ttable = ddb.create_table(TableName=tname,
+                                          KeySchema=[
+                                              {
+                                                  'AttributeName': '_id',
+                                                  'KeyType': 'HASH'
+                                              },
+                                              {
+                                                  'AttributeName': timeField,
+                                                  'KeyType': 'RANGE'
+                                              }
+                                          ],
+                                          AttributeDefinitions=[
+                                              {
+                                                  'AttributeName': '_id',
+                                                  'AttributeType': 'S'
+                                              },
+                                              {
+                                                  'AttributeName': timeField,
+                                                  'AttributeType': 'N'
+                                              }
+                                          ],
+                                          ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
+                                          )
+                print("Waiting for table creation")
+                response = ttable.wait_until_exists()
+                return 1
+            except:
+                print("failed to create table")
+                return -1
+        return -1
 
 
 def generateMetaData(rosbagdata, vehicleID, experimentnumber, other):
@@ -201,7 +240,7 @@ def checkExistingMetaData(dbobject, metadata):
                     "startTime": metadata['startTime'],
                     "size": metadata['size'],
                     'msgnum': metadata['msgnum']}
-    return dbobject.db_find("metadata", metadata)
+    return dbobject.db_find_metadata("metadata", metadata)
     # result = dbconn["metadata"].find_one(searchstring)
     # if (result != None):
     #    return result["_id"]
@@ -227,6 +266,7 @@ def generateFilteredTopicList(rosbagfile, PointCloud2=False):
               'visualization_msgs/MarkerArray',  # breaks insert
               'autoware_msgs/DetectedObjectArray',  # breaks insert
               'autoware_msgs/LaneArray',
+              'autoware_msgs/Lane', #too big for dynamo
               '/rosout'
               ]
     if (PointCloud2 == False):
@@ -248,52 +288,13 @@ def generateFilteredTopicList(rosbagfile, PointCloud2=False):
     return goodtopiclist
 
 
-# def insertLiDARMessages(collection, rosbagfile, newmeta_id):
-#     print("Processing LiDAR data")
-#     topics = rosbagfile.get_type_and_topic_info()
-#     topiclist = topics.topics
-#     for t in topiclist.items():
-#         if (t[1].msg_type == 'sensor_msgs/PointCloud2'):
-#             print(t)
-#     #/points_raw
-#     count = 0
-#     for topic, msg, t in rosbagfile.read_messages(topics='/points_raw'):
-#         msgdict = message_converter.convert_ros_message_to_dictionary(msg)
-#
-#         pcread = pc2.read_points(msg, skip_nans=True, field_names=("x", "y", "z"))
-#         ptlist = list(pcread)
-#
-#         newitem = {"topic": topic,
-#                    "timeField": datetime.utcfromtimestamp(t.secs + (t.nsecs/10e6)),
-#                    "size": len(msgdict),
-#                    "msg_type": msg._type,
-#                    "metadataID": newmeta_id,
-#                    "pointcloud": ptlist}
-#         msgdict.pop('data')
-#         result = newitem.update(msgdict)
-#         try:
-#             mycol.insert_one(newitem)
-#             count = count + 1
-#             # print(count)
-#             #prog.set_stat(count)
-#             #prog.update()
-#         except pymongo.errors.OperationFailure:
-#             print("\nerror with message " + msg)
-#             return -1
-#         except pymongo.errors.DocumentTooLarge:
-#             print("\nTopic too large " + topic)
-#             return -1
-#         except:
-#             print("\nError with message of topic " + topic)
-#             return -1
-#     return count
 def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_id, prog, LiDARbool):
     count = 0
     for topic, msg, t in rosbagfile.read_messages(topics=goodtopiclist):
         msgdict = message_converter.convert_ros_message_to_dictionary(msg)
-
+        adjTime = datetime.utcfromtimestamp(t.secs + (t.nsecs / 10e6)).timestamp()
         newitem = {"topic": topic,
-                   "timeField": datetime.utcfromtimestamp(t.secs + (t.nsecs / 10e6)),
+                   "timeField": adjTime,
                    "size": len(msgdict),
                    "msg_type": msg._type,
                    "metadataID": newmeta_id}
@@ -317,25 +318,25 @@ def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_i
             newitem.update(pdata_dict)
         else:
             result = newitem.update(msgdict)
-        try:
-            dbobject.db_insert_main(newitem)
-            # iresult = mycol.insert_one(newitem)
-            count = count + 1
-            # print(count)
-            prog.set_stat(count)
-            prog.update()
-        except pymongo.errors.OperationFailure:
-            print("\nOpFail Error with message " + msg + " => " + msg._type)
-            return -1
-        except pymongo.errors.DocumentTooLarge:
-            print("\nTopic too large " + topic + " => " + msg._type)
-            return -1
-        except Exception as ex:
-            print("\nError with message of topic " + topic + " => " + msg._type)
-            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-            message = template.format(type(ex).__name__, ex.args)
-            print(message)
-            return -1
+        # try:
+        result = dbobject.db_insert_main(newitem)
+        # iresult = mycol.insert_one(newitem)
+        count = count + 1
+        # print(count)
+        prog.set_stat(count)
+        prog.update()
+        # except pymongo.errors.OperationFailure:
+        #     print("\nOpFail Error with message " + msg + " => " + msg._type)
+        #     return -1
+        # except pymongo.errors.DocumentTooLarge:
+        #     print("\nTopic too large " + topic + " => " + msg._type)
+        #     return -1
+        # except Exception as ex:
+        #     print("\nError with message of topic " + topic + " => " + msg._type)
+        #     template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+        #     message = template.format(type(ex).__name__, ex.args)
+        #     print(message)
+        #     return -1
     return count
 
 
@@ -404,6 +405,7 @@ if __name__ == '__main__':
     else:
         print("inserting the metadata tag")
         newmeta_id = insertMetaData(dbobject, bagmetadata)
+
     print("Inserting data # -> " + str(num_msg))
     prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
     prog.update()
