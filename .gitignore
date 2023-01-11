@@ -135,6 +135,6 @@ engage2.py
 readbrakes.py
 rosbag2video.py
 testengage.py
-readbrakes.py
-readbrakes.py
 *.mp4
+*.00000
+apollopy/*

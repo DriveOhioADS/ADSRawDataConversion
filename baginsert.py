@@ -14,8 +14,8 @@ import sensor_msgs.point_cloud2 as pc2
 import numpy as np
 import uuid
 from decimal import Decimal
-
-
+import cyberreader
+from google.protobuf.json_format import MessageToJson
 # import datetime
 # import time
 class DatabaseInterface:
@@ -339,13 +339,83 @@ def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_i
         #     return -1
     return count
 
+def ProcessRosbagFile(args, dbobject):
+    bag = rosbag.Bag(args.rosbag)
 
+    IncludeLiDAR = False
+    if (args.lidar):
+        IncludeLiDAR = True
+        print("Including PointCloud2 LiDAR data")
+        # print("Inserting LiDAR # -> ")
+        # #prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
+        # #prog.update()
+        # insertLiDARMessages(mycol, bag, newmeta_id=0)
+        # #prog.end()
+        # bag.close()
+    else:
+        print("Skipping LiDAR messages")
+
+    print("Scanning messages")
+    selecttopiclist = generateFilteredTopicList(bag, PointCloud2=IncludeLiDAR)
+    num_msg = bag.get_message_count(selecttopiclist)
+
+    bagmetadata = generateMetaData(bag, vehicleID=args.vehicleid, experimentnumber=args.experimentid,
+                                other={'selectedtopics': selecttopiclist})
+    dataexists = checkExistingMetaData(dbobject, bagmetadata)
+    if (args.force == False and dataexists):
+        print("metadata already present")
+        sys.exit()
+    elif (args.force == 1 and dataexists):
+        newmeta_id = dataexists
+    else:
+        print("inserting the metadata tag")
+        newmeta_id = insertMetaData(dbobject, bagmetadata)
+
+    print("Inserting data # -> " + str(num_msg))
+    prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
+    prog.update()
+    insertMessagesByTopicFilter(dbobject, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
+    prog.end()
+    bag.close()
+
+
+def ProcessCyberFile(args, dbobject):
+    filename = args.cyber
+    unqiue_channel = []
+    #filename = sys.argv[1]
+    pbfactory = cyberreader.ProtobufFactory()
+    reader = cyberreader.RecordReader(filename)
+    for channel in reader.GetChannelList():
+        desc = reader.GetProtoDesc(channel)
+        pbfactory.RegisterMessage(desc)
+        unqiue_channel.append(channel)
+        
+    message = cyberreader.RecordMessage()
+    count = 0
+    while reader.ReadMessage(message):
+        message_type = reader.GetMessageType(message.channel_name)
+        msg = pbfactory.GenerateMessageByType(message_type)
+        msg.ParseFromString(message.content)
+        print(message.channel_name)
+        if(message.channel_name == "/tf" or
+            message.channel_name == "/apollo/sensor/gnss/raw_data" or
+            message.channel_name == "/apollo/sensor/gnss/corrected_imu" or
+            message.channel_name == "/apollo/localization/pose"):
+            #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
+            jdata = MessageToJson(msg)
+            print(jdata)
+            #todo have accept/deny list
+            #insert into database
+    print("Message Count %d" % count)
+    
+      
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dynamodb', help='dynamo url string', required=False)
     parser.add_argument('--mongodb', help='mongodb url string', required=False)
-    parser.add_argument('-b', '--rosbag', help='rosbag file', required=True)
+    parser.add_argument('--cyber', help='cyber data folder', required=False)
+    parser.add_argument('-b', '--rosbag', help='rosbag file', required=False)
     parser.add_argument('-v', '--vehicleid', type=int, help='vehicle ID', required=True)
     parser.add_argument('-e', '--experimentid', type=int, help='experiment ID', required=True)
     parser.add_argument('-c', '--collection', default='rosbag', help='Collection Name', required=False)
@@ -373,44 +443,16 @@ if __name__ == '__main__':
 
     dbobject.setCollectionName(args.collection)
     dbobject.db_connect()
-
-    print("Loading rosbag")
-    bag = rosbag.Bag(args.rosbag)
-
-    IncludeLiDAR = False
-    if (args.lidar):
-        IncludeLiDAR = True
-        print("Including PointCloud2 LiDAR data")
-        # print("Inserting LiDAR # -> ")
-        # #prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
-        # #prog.update()
-        # insertLiDARMessages(mycol, bag, newmeta_id=0)
-        # #prog.end()
-        # bag.close()
+    
+    if(args.cyber != None):
+        print('Processing Cyber data')
+        ProcessCyberFile(args, dbobject)
+    elif(args.rosbag != None):
+        print("Loading rosbag")
+        ProcessRosbagFile(args, dbobject)
+        
     else:
-        print("Skipping LiDAR messages")
-
-    print("Scanning messages")
-    selecttopiclist = generateFilteredTopicList(bag, PointCloud2=IncludeLiDAR)
-    num_msg = bag.get_message_count(selecttopiclist)
-
-    bagmetadata = generateMetaData(bag, vehicleID=args.vehicleid, experimentnumber=args.experimentid,
-                                   other={'selectedtopics': selecttopiclist})
-    dataexists = checkExistingMetaData(dbobject, bagmetadata)
-    if (args.force == False and dataexists):
-        print("metadata already present")
+        print("No data file source specified")
         sys.exit()
-    elif (args.force == 1 and dataexists):
-        newmeta_id = dataexists
-    else:
-        print("inserting the metadata tag")
-        newmeta_id = insertMetaData(dbobject, bagmetadata)
-
-    print("Inserting data # -> " + str(num_msg))
-    prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
-    prog.update()
-    insertMessagesByTopicFilter(dbobject, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
-    prog.end()
-    bag.close()
 
     print("All done")
