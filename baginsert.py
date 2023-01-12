@@ -14,7 +14,7 @@ import sensor_msgs.point_cloud2 as pc2
 import numpy as np
 import uuid
 from decimal import Decimal
-import cyberreader
+import cyberreaderlib
 from google.protobuf.json_format import MessageToJson
 # import datetime
 # import time
@@ -64,8 +64,8 @@ class DatabaseMongo(DatabaseInterface):
                 break
 
         if (mycol == None):
-            print("Creating the collection: " + args.collection)
-            mydb.create_collection(args.collection, timeseries={'timeField': 'timeField'})
+            print("Creating the collection: " + self.cname)
+            mydb.create_collection(self.cname, timeseries={'timeField': 'timeField'})
             mycol = mydb[self.cname]
 
         self.myclient = myclient
@@ -287,8 +287,7 @@ def generateFilteredTopicList(rosbagfile, PointCloud2=False):
             print("skip: " + tp[0] + " => " + tp[1].msg_type)
     return goodtopiclist
 
-
-def insertMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_id, prog, LiDARbool):
+def insertRosBagMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_id, prog, LiDARbool):
     count = 0
     for topic, msg, t in rosbagfile.read_messages(topics=goodtopiclist):
         msgdict = message_converter.convert_ros_message_to_dictionary(msg)
@@ -374,39 +373,16 @@ def ProcessRosbagFile(args, dbobject):
     print("Inserting data # -> " + str(num_msg))
     prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
     prog.update()
-    insertMessagesByTopicFilter(dbobject, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
+    insertRosBagMessagesByTopicFilter(dbobject, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
     prog.end()
     bag.close()
 
 
 def ProcessCyberFile(args, dbobject):
-    filename = args.cyber
-    unqiue_channel = []
-    #filename = sys.argv[1]
-    pbfactory = cyberreader.ProtobufFactory()
-    reader = cyberreader.RecordReader(filename)
-    for channel in reader.GetChannelList():
-        desc = reader.GetProtoDesc(channel)
-        pbfactory.RegisterMessage(desc)
-        unqiue_channel.append(channel)
+    print("todo")
+    sys.exit(-1)
         
-    message = cyberreader.RecordMessage()
-    count = 0
-    while reader.ReadMessage(message):
-        message_type = reader.GetMessageType(message.channel_name)
-        msg = pbfactory.GenerateMessageByType(message_type)
-        msg.ParseFromString(message.content)
-        print(message.channel_name)
-        if(message.channel_name == "/tf" or
-            message.channel_name == "/apollo/sensor/gnss/raw_data" or
-            message.channel_name == "/apollo/sensor/gnss/corrected_imu" or
-            message.channel_name == "/apollo/localization/pose"):
-            #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
-            jdata = MessageToJson(msg)
-            print(jdata)
-            #todo have accept/deny list
-            #insert into database
-    print("Message Count %d" % count)
+    
     
       
 if __name__ == '__main__':

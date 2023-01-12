@@ -1,5 +1,5 @@
-sudo apt install python3-rosbag
-sudo apt install python3-numpy python3-scipy python3-matplotlib
+sudo apt install -y python3-rosbag
+sudo apt install -y python3-numpy python3-scipy python3-matplotlib
 sudo pip3 install boto3
 sudo pip3 install pymongo
 sudo pip3 install rospy_message_converter
@@ -17,4 +17,4 @@ sudo pip3 install pyprog
 # sudo apt update
 # sudo apt install -y ros-dev-tools
 
-sudo apt install python3-sensor-msgs
+sudo apt install -y python3-sensor-msgs

@@ -179,8 +179,9 @@ class RecordReader(RecordBase):
         self.header = self.file_reader.header
         if self.file_reader.ReadIndex():
             self.index = self.file_reader.index
-            for i in range(len(self.index.indexes)):
-                single_idx = self.index.indexes[i]
+            #for i in range(len(self.index.indexes)):
+            #    single_idx = self.index.indexes[i]
+            for single_idx in self.index.indexes:
                 if single_idx.type != record_pb2.SECTION_CHANNEL:
                     continue
 
@@ -351,4 +352,3 @@ if __name__ == "__main__":
             jdata = MessageToJson(msg)
             print(jdata)
     print("Message Count %d" % count)
-    rr = None
