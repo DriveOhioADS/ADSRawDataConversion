@@ -14,7 +14,7 @@ import sensor_msgs.point_cloud2 as pc2
 import numpy as np
 import uuid
 from decimal import Decimal
-import cyberreaderlib
+from CyberReader import CyberReader
 from google.protobuf.json_format import MessageToJson
 # import datetime
 # import time
@@ -101,7 +101,8 @@ class DatabaseDynamo(DatabaseInterface):
         # ddb = boto3.client('dynamodb', endpoint_url='http://172.31.144.1:8000',
         #                     aws_access_key_id="anything",
         #                     aws_secret_access_key="anything",
-        #                     region_name="us-west-2",)
+        #                     region_name="us-west-2")
+        
         ddb = boto3.resource('dynamodb', endpoint_url=self.uristring,
                              aws_access_key_id="anything",
                              aws_secret_access_key="anything",
@@ -380,9 +381,10 @@ def ProcessRosbagFile(args, dbobject):
 
 def ProcessCyberFile(args, dbobject):
     print("todo")
-    sys.exit(-1)
-        
     
+    cr = CyberReader()
+    cr.InsertDataFromFolder(dbobject, deny_channels=None, allow_channels=None, folderlocation=args.cyber)   
+    sys.exit(-1)
     
       
 if __name__ == '__main__':

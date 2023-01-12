@@ -110,7 +110,8 @@ class CyberReader:
             # all out of messages for this file
             return None
         
-    def InsertDataFromFolder(self, dbobject, deny_channels=None, allow_channels=None):
+    def InsertDataFromFolder(self, dbobject, deny_channels=None, allow_channels=None, folderlocation=None):
+        print("Inserting cyberdata from folder " + folderlocation)
         # deny and allow are populated - use as is
         # deny is empty, allow is empty - allow everything
         # deny is empty, allow has items - match allow
