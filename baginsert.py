@@ -18,220 +18,24 @@ from CyberReader import CyberReader
 from google.protobuf.json_format import MessageToJson
 # import datetime
 # import time
-class DatabaseInterface:
-    def __init__(self, uristring):
-        self.uristring = uristring
-        self.cname = None
-
-    def check(self):
-        print("class check")
-
-    def db_connect(self):
-        print("Connecting")
-
-    def db_insert(self, collection_name, newdata):
-        print("Inserting data")
-
-    def setCollectionName(self, cname):
-        self.cname = cname
+from databaseinterface import DatabaseDynamo, DatabaseMongo
 
 
-class DatabaseMongo(DatabaseInterface):
-    def __init__(self, uristring):
-        super().__init__(uristring)
-        self.mycol = None
-        self.mydb = None
-        self.myclient = None
-        self.dname = "rosbag"
-        self.cname = "rosbag"
-        print("init")
-
-    def db_insert_main(self, newdata):
-        return self.db_insert(self.cname, newdata)
-
-    def db_insert(self, collection_name, newdata):
-        return self.mydb[collection_name].insert_one(newdata)
-
-    def db_connect(self):
-        myclient = pymongo.MongoClient(self.uristring)  # "mongodb://localhost:27017/")
-        mydb = myclient["rosbag"]
-        mycol = None
-        for name in mydb.list_collection_names():
-            print(name)
-            if (name == self.cname):
-                mycol = mydb[self.cname]
-                print("Found collection: " + name)
-                break
-
-        if (mycol == None):
-            print("Creating the collection: " + self.cname)
-            mydb.create_collection(self.cname, timeseries={'timeField': 'timeField'})
-            mycol = mydb[self.cname]
-
-        self.myclient = myclient
-        self.mydb = mydb
-        self.mycol = mycol
-
-    def db_find_metadata(self, cname, sdata):
-        result = self.mydb[cname].find_one(sdata)
-        if result != None:
-            return result["_id"]
-        return None
-
-    # def insert_metadata(self, metadata):
-    #     result = self.mydb[self.dname]["metadata"].insert_one(metadata)
-    #     if result != None:
-    #         return result.inserted_id
-    #     return None
-
-
-def generate_unique_id():
-    return uuid.uuid1()
-
-
-class DatabaseDynamo(DatabaseInterface):
-    def __init__(self, uristring):
-        super().__init__(uristring)
-        print("DynamoDB init")
-        self.ddb = None
-
-    def db_connect(self):
-        print(f"connecting to dynamodb {self.uristring}")
-        # client = boto3.client('dynamodb')
-        # ddb = boto3.client('dynamodb', endpoint_url='http://172.31.144.1:8000',
-        #                     aws_access_key_id="anything",
-        #                     aws_secret_access_key="anything",
-        #                     region_name="us-west-2")
-        
-        ddb = boto3.resource('dynamodb', endpoint_url=self.uristring,
-                             aws_access_key_id="anything",
-                             aws_secret_access_key="anything",
-                             region_name="us-west-2", )
-        tables = list(ddb.tables.all())
-        print(tables)
-        self.ddb = ddb
-
-        result = self.checkTableExistsCreateIfNot("metadata")
-        if result == 0:
-            print("Table check/create issue")
-            sys.exit()
-        result = self.checkTableExistsCreateIfNot(self.cname)
-        if result == 0:
-            print("Table check/create issue")
-            sys.exit()
-
-    def db_find_metadata(self, cname, sdata):
-        sdata = json.loads(json.dumps(sdata), parse_float=Decimal)
-        item_to_find = sdata['startTime']
-        filter_to_find = Attr('startTime').eq(item_to_find)
-        ttable = self.ddb.Table(cname)
-        try:
-            result = ttable.scan(FilterExpression=filter_to_find)
-            if result['Count'] == 0:
-                return None
-            return result['Items'][0]['_id']
-            # mongo only gives ID because its not scanning
-            # change from scan to query someday
-        except TypeError:
-            print("cannot find item")
-            return None
-        # result = self.mydb[cname].find_one(sdata)
-        # if (result != None):
-        #    return result["_id"]
-
-    def db_insert_main(self, newdata):
-        return self.db_insert(self.cname, newdata)
-
-    def db_insert(self, collection_name, newdata):
-        ttable = self.ddb.Table(collection_name)
-        # dynamo does not support float only decimal, watch out for datetime
-
-        newdata = json.loads(json.dumps(newdata), parse_float=Decimal)
-
-        # new data is already in json, but needs dynamo format
-        # also we need to generate a unique ID
-        newUUID = str(generate_unique_id())
-        #print(newUUID)
-        checkdata = {'_id': newUUID}
-        checkdata.update(newdata)
-        try:
-            ttable.put_item(Item=checkdata)
-        except ClientError as ce:
-            print(f"\nclient error on insert {ce}")
-            sys.exit()
-        except TypeError as e:
-            print(f"\ntype error on insert {e}")
-            #sys.exit()
-
-    def checkTableExistsCreateIfNot(self, tname):
-        ddb = self.ddb
-        # dynamo only has tables, not dbs+collections, so the collection is table here
-        ttable = self.ddb.Table(tname)
-        print(f"Looking for table {tname}")
-
-        timeField = 'timeField'
-        if (tname == 'metadata'):
-            timeField = 'startTime'
-
-        is_table_existing = False
-        createTable = False
-        try:
-            is_table_existing = ttable.table_status in ("CREATING", "UPDATING",
-                                                        "DELETING", "ACTIVE")
-            print(f"table {tname} already exists, no need to create")
-            return 1
-        except ClientError:
-            print(f"Missing table {tname}")
-            createTable = True
-
-        if (createTable):
-            try:
-                ttable = ddb.create_table(TableName=tname,
-                                          KeySchema=[
-                                              {
-                                                  'AttributeName': '_id',
-                                                  'KeyType': 'HASH'
-                                              },
-                                              {
-                                                  'AttributeName': timeField,
-                                                  'KeyType': 'RANGE'
-                                              }
-                                          ],
-                                          AttributeDefinitions=[
-                                              {
-                                                  'AttributeName': '_id',
-                                                  'AttributeType': 'S'
-                                              },
-                                              {
-                                                  'AttributeName': timeField,
-                                                  'AttributeType': 'N'
-                                              }
-                                          ],
-                                          ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
-                                          )
-                print("Waiting for table creation")
-                response = ttable.wait_until_exists()
-                return 1
-            except:
-                print("failed to create table")
-                return -1
-        return -1
-
-
-def generateMetaData(rosbagdata, vehicleID, experimentnumber, other):
+def generateRosMetaData(rosbagdata, metadata, vehicleID, experimentnumber, topics):
     starttime = rosbagdata.get_start_time()
     endtime = rosbagdata.get_end_time()
     duration = endtime - starttime
-    metadata = {'vehicleID': vehicleID,
-                'experimentID': experimentnumber,
+    interal_metadata = {
                 'startTime': starttime,
                 'endTime': endtime,
                 'duration': duration,
-                'filename': bag.filename,
-                'size': bag.size,
-                'msgnum': bag.get_message_count(),
-                'other': other,
+                'filename': rosbagdata.filename,
+                'size': rosbagdata.size,
+                'msgnum': rosbagdata.get_message_count(),
+                'topics': topics,
+                'type': 'rosbag'
                 }
+    metadata.update(interal_metadata)
     return metadata
 
 
@@ -252,10 +56,6 @@ def insertMetaData(dbobject, metadata):
     return dbobject.db_insert("metadata", metadata)
     # result = dbconn["metadata"].insert_one(metadata)
     # return result.inserted_id  # needs to be ID of metadata
-
-
-count = 0
-
 
 def generateFilteredTopicList(rosbagfile, PointCloud2=False):
     banned = ['sensor_msgs/CompressedImage',
@@ -288,7 +88,7 @@ def generateFilteredTopicList(rosbagfile, PointCloud2=False):
             print("skip: " + tp[0] + " => " + tp[1].msg_type)
     return goodtopiclist
 
-def insertRosBagMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, newmeta_id, prog, LiDARbool):
+def insertRosbagMessagesByTopicFilter(dbobject, rosbagfile, goodtopiclist, newmeta_id, prog, LiDARbool):
     count = 0
     for topic, msg, t in rosbagfile.read_messages(topics=goodtopiclist):
         msgdict = message_converter.convert_ros_message_to_dictionary(msg)
@@ -325,33 +125,17 @@ def insertRosBagMessagesByTopicFilter(collection, rosbagfile, goodtopiclist, new
         # print(count)
         prog.set_stat(count)
         prog.update()
-        # except pymongo.errors.OperationFailure:
-        #     print("\nOpFail Error with message " + msg + " => " + msg._type)
-        #     return -1
-        # except pymongo.errors.DocumentTooLarge:
-        #     print("\nTopic too large " + topic + " => " + msg._type)
-        #     return -1
-        # except Exception as ex:
-        #     print("\nError with message of topic " + topic + " => " + msg._type)
-        #     template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-        #     message = template.format(type(ex).__name__, ex.args)
-        #     print(message)
-        #     return -1
+
     return count
 
-def ProcessRosbagFile(args, dbobject):
+def ProcessRosbagFile(args, dbobject, channelList, metadatasource):
+    #todo add channel list processing here
     bag = rosbag.Bag(args.rosbag)
 
     IncludeLiDAR = False
     if (args.lidar):
         IncludeLiDAR = True
         print("Including PointCloud2 LiDAR data")
-        # print("Inserting LiDAR # -> ")
-        # #prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
-        # #prog.update()
-        # insertLiDARMessages(mycol, bag, newmeta_id=0)
-        # #prog.end()
-        # bag.close()
     else:
         print("Skipping LiDAR messages")
 
@@ -359,8 +143,8 @@ def ProcessRosbagFile(args, dbobject):
     selecttopiclist = generateFilteredTopicList(bag, PointCloud2=IncludeLiDAR)
     num_msg = bag.get_message_count(selecttopiclist)
 
-    bagmetadata = generateMetaData(bag, vehicleID=args.vehicleid, experimentnumber=args.experimentid,
-                                other={'selectedtopics': selecttopiclist})
+    bagmetadata = generateRosMetaData(bag, metadatasource,
+                                topics={'selectedtopics': selecttopiclist})
     dataexists = checkExistingMetaData(dbobject, bagmetadata)
     if (args.force == False and dataexists):
         print("metadata already present")
@@ -374,47 +158,47 @@ def ProcessRosbagFile(args, dbobject):
     print("Inserting data # -> " + str(num_msg))
     prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
     prog.update()
-    insertRosBagMessagesByTopicFilter(dbobject, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
+    insertRosbagMessagesByTopicFilter(dbobject, bag, selecttopiclist, newmeta_id, prog, LiDARbool=IncludeLiDAR)
     prog.end()
     bag.close()
 
 
-def ProcessCyberFile(args, dbobject):
-    print("todo")
-    
+def ProcessCyberFile(args, dbobject, channelList, metadatasource):
     cr = CyberReader()
-    cr.InsertDataFromFolder(dbobject, deny_channels=None, allow_channels=None, folderlocation=args.cyber)   
+    #check that deny/allow are present and set defaults
+    if(channelList != None):
+        if(channelList['deny'] != None):
+            deny = channelList['deny']
+        else:
+            deny = None
+        if(channelList['allow'] != None):
+            allow = channelList['allow']
+        else:
+            allow = None
+        channelList = {
+                    'deny': deny,
+                    'allow': allow
+                    }
+    
+    cr.InsertDataFromFolder(dbobject, metadatasource, channelList, folderlocation=args.cyber)   
     sys.exit(-1)
     
-      
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dynamodb', help='dynamo url string', required=False)
-    parser.add_argument('--mongodb', help='mongodb url string', required=False)
-    parser.add_argument('--cyber', help='cyber data folder', required=False)
-    parser.add_argument('-b', '--rosbag', help='rosbag file', required=False)
-    parser.add_argument('-v', '--vehicleid', type=int, help='vehicle ID', required=True)
-    parser.add_argument('-e', '--experimentid', type=int, help='experiment ID', required=True)
-    parser.add_argument('-c', '--collection', default='rosbag', help='Collection Name', required=False)
-    parser.add_argument('--lidar', default='', dest='lidar', action='store_true', help='Insert LiDAR', required=False)
-    parser.add_argument('--force', default=False, dest='force', action='store_true', help='force insert')
-    args = parser.parse_args()
-
+    
+def main(args):
+    #todo metadata load from file
+    metadatasource = {
+                        'vehicleID': 7,
+                        'experimentID': 7,
+                        'other': 0,
+                     }
     if (args.mongodb != None):
         print("Connecting to database at " + args.mongodb + " / " + args.collection)
         dbobject = DatabaseMongo(args.mongodb)
         dbobject.check()
-        # dbobject.setCollectionName(args.collection)
-        # dbobject.db_connect()
     elif (args.dynamodb != None):
         print("Connecting to database at " + args.dynamodb + " / " + args.collection)
         dbobject = DatabaseDynamo(args.dynamodb)
-        dbobject.check()
-
-        # dbobject.db_connect()
-        # dbobject.db_insert('test', "test")
-        # sys.exit()
+        dbobject.check()    
     else:
         print("No database specified")
         sys.exit()
@@ -424,13 +208,29 @@ if __name__ == '__main__':
     
     if(args.cyber != None):
         print('Processing Cyber data')
-        ProcessCyberFile(args, dbobject)
+        ProcessCyberFile(args, dbobject, args.channellist, metadatasource)
     elif(args.rosbag != None):
         print("Loading rosbag")
-        ProcessRosbagFile(args, dbobject)
+        ProcessRosbagFile(args, dbobject, args.channellist, metadatasource)
         
     else:
         print("No data file source specified")
         sys.exit()
 
     print("All done")
+      
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dynamodb', help='dynamo url string', required=False)
+    parser.add_argument('--mongodb', help='mongodb url string', required=False)
+    parser.add_argument('--cyber', help='cyber data folder', required=False)
+    parser.add_argument('--rosbag', help='rosbag file', required=False)
+    parser.add_argument('--metadatafile', help='json metadata file',required=True)
+    #parser.add_argument('-v', '--vehicleid', type=int, help='vehicle ID', required=True)
+    #parser.add_argument('-e', '--experimentid', type=int, help='experiment ID', required=True)
+    parser.add_argument('--collection', default='rosbag', help='Collection Name', required=False)
+    parser.add_argument('--lidar', default='', dest='lidar', action='store_true', help='Insert LiDAR', required=False)
+    parser.add_argument('--force', default=False, dest='force', action='store_true', help='force insert')
+    parser.add_argument('--channellist', default=None, help='json file with accecpt/deny list of channels')
+    args = parser.parse_args()
+    main(args)
