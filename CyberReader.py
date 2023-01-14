@@ -142,6 +142,20 @@ class CyberReader:
                 pbfactory.RegisterMessage(desc)
                 unique_channels.append(channel)
             
+            #have todo this for each file in case allow is blank and gets set
+            deny_channels=None
+            allow_channels=None
+            if(channelList != None):
+                if(channelList['deny'] != None):
+                    deny_channels=channelList['deny']
+                if(channelList['allow'] != None):
+                    allow_channels=channelList['allow']
+            if(allow_channels == None):
+                allow_channels = set(unique_channels)
+            #run check that gives priority to deny
+            for deny in deny_channels:
+                if(deny in allow_channels):
+                    allow_channels.remove(deny)
             #have to wait until startime is found for each file
             print(f"Checking cyber metadata for file {filename}")
         
@@ -154,6 +168,8 @@ class CyberReader:
                 'msgnum': reader.header.message_number,
                 'size': reader.header.size,
                 'topics': unique_channels,
+                'deny': deny_channels,
+                'allow': allow_channels,
                 'type': 'cyber'
             }
             metadatasource.update(specificmeta)
@@ -170,22 +186,9 @@ class CyberReader:
                 print(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
                 return -1
                
-            #have todo this for each file in case allow is blank and gets set
-            deny_channels=None
-            allow_channels=None
-            if(channelList != None):
-                if(channelList['deny'] != None):
-                    deny_channels=channelList['deny']
-                if(channelList['allow'] != None):
-                    allow_channels=channelList['allow']
-            if(allow_channels == None):
-                allow_channels = set(unique_channels)
-            # else its up to the programmer here...
             
-            #run check that gives priority to deny
-            for deny in deny_channels:
-                if(deny in allow_channels):
-                    allow_channels.remove(deny)
+            
+            #start the message extract process
 
             message = cyberreader.RecordMessage()
             num_msg = reader.header.message_number
