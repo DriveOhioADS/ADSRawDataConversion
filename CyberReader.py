@@ -119,16 +119,6 @@ class CyberReader:
                              forceInsert=False):
         
         print("Inserting cyberdata from folder " + self.foldername)
-        # deny and allow are populated - use as is
-        # deny is empty, allow is empty - allow everything
-        # deny is empty, allow has items - match allow
-        # deny has items, allow is empty - not match deny
-        
-        
-        # deny_channels = set("/tf",
-        #                     "/apollo/sensor/gnss/raw_data",
-        #                     "/apollo/sensor/gnss/corrected_imu",
-        #                     "/apollo/localization/pose")
 
         unique_channels = []
         #todo fix the path combine
@@ -168,26 +158,26 @@ class CyberReader:
                 'msgnum': reader.header.message_number,
                 'size': reader.header.size,
                 'topics': unique_channels,
-                'deny': deny_channels,
-                'allow': allow_channels,
+                #'deny': deny_channels,
+                #'allow': allow_channels,
                 'type': 'cyber'
             }
-            metadatasource.update(specificmeta)
-            metadata_search = dbobject.db_find_metadata('metadata', specificmeta)
+            specificmeta.update(metadatasource)
+            metadata_search = dbobject.db_find_metadata_by_startTime('metadata', specificmeta['startTime'])
             if(metadata_search == None):
-                result = dbobject.db_insert("metadata", metadatasource)
-                #check the insert was good
-                id = {'_id': result.inserted_id}
-                metadata_search = dbobject.db_find_metadata('metadata', id)
-                if(metadata_search == None):
+                result = dbobject.db_insert("metadata", specificmeta)
+                if(result == -1):
                     print(f"metadata insert from cyber failed {filename}")
+                    return -1
+                #check the insert was good
+                metadata_search = dbobject.db_find_metadata_by_id('metadata', result.inserted_id)
+                if(metadata_search == None):
+                    print(f"metadata check from cyber failed {filename}")
                     return -1
             elif not forceInsert:
                 print(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
-                return -1
-               
-            
-            
+                continue
+                           
             #start the message extract process
 
             message = cyberreader.RecordMessage()
@@ -276,7 +266,7 @@ if __name__ == "__main__":
                 'allow': None
                 }
     
-    dbobject = DatabaseMongo("mongodb://172.28.64.1:27017")
+    dbobject = DatabaseMongo("mongodb://172.31.32.1:27017")
     dbobject.setCollectionName("cyber")
     dbobject.db_connect()
     metadatasource = {

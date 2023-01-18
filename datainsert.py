@@ -45,7 +45,7 @@ def checkExistingMetaData(dbobject, metadata):
                     "startTime": metadata['startTime'],
                     "size": metadata['size'],
                     'msgnum': metadata['msgnum']}
-    return dbobject.db_find_metadata("metadata", metadata)
+    return dbobject.db_find_metadata("metadata", searchstring['startTime'])
     # result = dbconn["metadata"].find_one(searchstring)
     # if (result != None):
     #    return result["_id"]
@@ -164,33 +164,26 @@ def ProcessRosbagFile(args, dbobject, channelList, metadatasource):
 
 
 def ProcessCyberFile(args, dbobject, channelList, metadatasource):
-    cr = CyberReader()
+    cr = CyberReader(args.cyberfolder, args.cyberfilebase)
     #check that deny/allow are present and set defaults
     if(channelList != None):
-        if(channelList['deny'] != None):
+        if('deny' in channelList and channelList['deny'] != None):
             deny = channelList['deny']
         else:
             deny = None
-        if(channelList['allow'] != None):
+        if('allow' in channelList and channelList['allow'] != None):
             allow = channelList['allow']
         else:
             allow = None
         channelList = {
                     'deny': deny,
                     'allow': allow
-                    }
-    
-    cr.InsertDataFromFolder(dbobject, metadatasource, channelList, folderlocation=args.cyber)   
-    sys.exit(-1)
-    
+                    }  
+    cr.InsertDataFromFolder(dbobject, metadatasource, channelList)   
+    return 0
     
 def main(args):
-    #todo metadata load from file
-    metadatasource = {
-                        'vehicleID': 7,
-                        'experimentID': 7,
-                        'other': 0,
-                     }
+    
     if (args.mongodb != None):
         print("Connecting to database at " + args.mongodb + " / " + args.collection)
         dbobject = DatabaseMongo(args.mongodb)
@@ -206,12 +199,24 @@ def main(args):
     dbobject.setCollectionName(args.collection)
     dbobject.db_connect()
     
-    if(args.cyber != None):
+    try:
+        with open(args.metadatafile, 'r') as file:
+            metadatasource = json.load(file)
+    except:
+        print("failed to load metadata from file")
+        return -1
+    
+    json_channels = None
+    if(args.channellist != None):
+        with open(args.channellist, 'r') as file:
+            json_channels = json.load(file)
+    
+    if(args.cyberfolder != None):
         print('Processing Cyber data')
-        ProcessCyberFile(args, dbobject, args.channellist, metadatasource)
+        ProcessCyberFile(args, dbobject, json_channels, metadatasource)
     elif(args.rosbag != None):
         print("Loading rosbag")
-        ProcessRosbagFile(args, dbobject, args.channellist, metadatasource)
+        ProcessRosbagFile(args, dbobject, json_channels, metadatasource)
         
     else:
         print("No data file source specified")
@@ -223,7 +228,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dynamodb', help='dynamo url string', required=False)
     parser.add_argument('--mongodb', help='mongodb url string', required=False)
-    parser.add_argument('--cyber', help='cyber data folder', required=False)
+    parser.add_argument('--cyberfolder', help='cyber data folder', required=False)
+    parser.add_argument('--cyberfilebase', help='cyber file name w/o extension', required=False)
     parser.add_argument('--rosbag', help='rosbag file', required=False)
     parser.add_argument('--metadatafile', help='json metadata file',required=True)
     #parser.add_argument('-v', '--vehicleid', type=int, help='vehicle ID', required=True)
@@ -232,5 +238,12 @@ if __name__ == '__main__':
     parser.add_argument('--lidar', default='', dest='lidar', action='store_true', help='Insert LiDAR', required=False)
     parser.add_argument('--force', default=False, dest='force', action='store_true', help='force insert')
     parser.add_argument('--channellist', default=None, help='json file with accecpt/deny list of channels')
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except:
+        print("argument parsing failed")
+        sys.exit(-1)
+    if(args.dynamodb):
+        print("Dynamodb insert is disabled right now due to metadata search")
+        sys.exit(-1)
     main(args)

@@ -82,8 +82,16 @@ class DatabaseMongo(DatabaseInterface):
         self.mydb = mydb
         self.mycol = mycol
 
-    def db_find_metadata(self, cname, sdata):
-        result = self.mydb[cname].find_one(sdata)
+
+    def db_find_metadata_by_startTime(self, cname, key):
+        return self.__db_find_metadata(cname, {'startTime': {'$eq':key}})
+
+    def db_find_metadata_by_id(self, cname, key):
+        return self.__db_find_metadata(cname, {'_id': {'$eq':key}})
+        
+    def __db_find_metadata(self, cname, filter):
+        #key = sdata['startTime']
+        result = self.mydb[cname].find_one(filter)
         if result != None:
             return result["_id"]
         return None
@@ -130,10 +138,18 @@ class DatabaseDynamo(DatabaseInterface):
             print("Table check/create issue")
             sys.exit()
 
-    def db_find_metadata(self, cname, sdata):
+    def db_find_metadata_by_startTime(self, cname, key):
+        filter_to_find = Attr('startTime').eq(key)
+        return self.__db_find_metadata(cname, filter_to_find)
+
+    def db_find_metadata_by_id(self, cname, key):
+        filter_to_find = Attr('_id').eq(key)
+        return self.__db_find_metadata(cname, filter_to_find)
+    
+    def __db_find_metadata(self, cname, filter_to_find):
         sdata = json.loads(json.dumps(sdata), parse_float=Decimal)
-        item_to_find = sdata['startTime']
-        filter_to_find = Attr('startTime').eq(item_to_find)
+        #item_to_find = sdata['startTime']
+        
         ttable = self.ddb.Table(cname)
         try:
             result = ttable.scan(FilterExpression=filter_to_find)
@@ -149,6 +165,7 @@ class DatabaseDynamo(DatabaseInterface):
         # if (result != None):
         #    return result["_id"]
 
+    
     def db_insert_main(self, newdata):
         return self.db_insert(self.cname, newdata)
 
@@ -183,7 +200,7 @@ class DatabaseDynamo(DatabaseInterface):
         if (tname == 'metadata'):
             timeField = 'startTime'
 
-        is_table_existing = False
+        #is_table_existing = False
         createTable = False
         try:
             is_table_existing = ttable.table_status in ("CREATING", "UPDATING",
