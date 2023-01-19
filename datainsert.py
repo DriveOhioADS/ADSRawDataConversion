@@ -243,7 +243,5 @@ if __name__ == '__main__':
     except:
         print("argument parsing failed")
         sys.exit(-1)
-    if(args.dynamodb):
-        print("Dynamodb insert is disabled right now due to metadata search")
-        sys.exit(-1)
+    
     main(args)

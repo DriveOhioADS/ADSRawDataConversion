@@ -3,20 +3,37 @@ This repo contains scripts to convert ROSBAG data from autonomous vehicles to Mo
 Not included currently: camera and LiDAR feeds
 
 # Usage
-``` python3 baginsert.py -d http://localhost:27017 -b rosbag.bag -v 1 -e 1 ```  
+``` python3 datainsert.py --mongodb http://localhost:27017 --rosbagb rosbag.bag --metadatafile meta.json --collection rosbag ```  
 
--d is the MongoDB URI  
--b is the rosbag file  
--v is the vehicle ID 	(metadata)  
--e is the experiment ID 	(metadata)  
 
-Optional  
--c is the collection name for the data insert  
---force overrides the metadata block on insert  
-# Metadata
+--dynamodb Dynamo URI string
+OR
+--mongodb Mongo URI string
+
+--cyberfolder location of folder with cyber data
+--cyber filebase filename without the .00000  
+OR
+--rosbag rosbag file for processing  
+
+--metadatafile json file with metadata
+--collection name of database table or collection
+--lidar include lidar data
+--force insert even if metadata is present
+--channellist list of deny and accept channels (both cyber and rosbag)
+
+# Setup
 ```
-vehicleID  
-experimentnumber  
+sudo apt install -y python3-rosbag
+sudo apt install -y python3-numpy python3-scipy python3-matplotlib
+sudo pip3 install boto3
+sudo pip3 install pymongo
+sudo pip3 install rospy_message_converter
+sudo pip3 install pyprog
+sudo apt install -y python3-sensor-msgs
+```
+
+# Metadata added by the program
+```
 starttime  
 endtime  
 duration  
@@ -24,13 +41,12 @@ filename
 size  
 msgnum  
 ```
-Vehicle ID and Experiment ID are runtime inputs, the rest come from the rosbag file
 
 # Forced insert
 The script will block data insert if the metadata already exists
 
 # Ignored topics
-These topics are either too large or cause insert errors:  
+These ROS topics are either too large or cause insert errors:  
 ```
 'sensor_msgs/CompressedImage',
 'sensor_msgs/Image',
