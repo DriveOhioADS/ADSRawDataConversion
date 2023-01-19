@@ -140,3 +140,4 @@ testengage.py
 *.00000
 apollopy/*
 *.csv
+*.log

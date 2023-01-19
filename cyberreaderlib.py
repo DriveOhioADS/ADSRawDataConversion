@@ -117,7 +117,6 @@ class RecordFileReader(RecordFileBase):
         except:
             return False
 
-        #might be wrong flags/offsets here - dunno exactly what 32-bit builds of apollo do
         section.type = struct.unpack_from("@i", section_bytes, 0)[0]
         section.size = struct.unpack_from("=q", section_bytes, 8)[0]
         return True
@@ -179,8 +178,6 @@ class RecordReader(RecordBase):
         self.header = self.file_reader.header
         if self.file_reader.ReadIndex():
             self.index = self.file_reader.index
-            #for i in range(len(self.index.indexes)):
-            #    single_idx = self.index.indexes[i]
             for single_idx in self.index.indexes:
                 if single_idx.type != record_pb2.SECTION_CHANNEL:
                     continue
@@ -323,13 +320,8 @@ class ProtobufFactory:
             return None
 
 if __name__ == "__main__":
-    filename = "../20221117125313.record.00000"
-    filename = "/mnt/e/Van/apollo_ridges_cyberbags/20221117125313.record.00012"
-    #if len(sys.argv) < 2:
-    #    print("Usage: %s <file>" % sys.argv[0])
-    #    exit(1)
+    filename = sys.argv[1]
     unqiue_channel = []
-    #filename = sys.argv[1]
     pbfactory = ProtobufFactory()
     reader = RecordReader(filename)
     for channel in reader.GetChannelList():

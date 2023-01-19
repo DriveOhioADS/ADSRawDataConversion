@@ -19,7 +19,7 @@ from google.protobuf.json_format import MessageToJson
 # import datetime
 # import time
 from databaseinterface import DatabaseDynamo, DatabaseMongo
-
+import logging
 
 def generateRosMetaData(rosbagdata, metadata, vehicleID, experimentnumber, topics):
     starttime = rosbagdata.get_start_time()
@@ -118,11 +118,8 @@ def insertRosbagMessagesByTopicFilter(dbobject, rosbagfile, goodtopiclist, newme
             newitem.update(pdata_dict)
         else:
             result = newitem.update(msgdict)
-        # try:
         result = dbobject.db_insert_main(newitem)
-        # iresult = mycol.insert_one(newitem)
         count = count + 1
-        # print(count)
         prog.set_stat(count)
         prog.update()
 
@@ -185,15 +182,15 @@ def ProcessCyberFile(args, dbobject, channelList, metadatasource):
 def main(args):
     
     if (args.mongodb != None):
-        print("Connecting to database at " + args.mongodb + " / " + args.collection)
+        logging.info(f"Connecting to database at {args.mongodb} / {args.collection}")
         dbobject = DatabaseMongo(args.mongodb)
         dbobject.check()
     elif (args.dynamodb != None):
-        print("Connecting to database at " + args.dynamodb + " / " + args.collection)
+        logging.info(f"Connecting to database at {args.dynamodb} / {args.collection}")
         dbobject = DatabaseDynamo(args.dynamodb)
         dbobject.check()    
     else:
-        print("No database specified")
+        logging.error("No database specified")
         sys.exit()
 
     dbobject.setCollectionName(args.collection)
@@ -203,7 +200,7 @@ def main(args):
         with open(args.metadatafile, 'r') as file:
             metadatasource = json.load(file)
     except:
-        print("failed to load metadata from file")
+        logging.error("failed to load metadata from file")
         return -1
     
     json_channels = None
@@ -212,19 +209,23 @@ def main(args):
             json_channels = json.load(file)
     
     if(args.cyberfolder != None):
-        print('Processing Cyber data')
+        logging.info('Processing Cyber data')
         ProcessCyberFile(args, dbobject, json_channels, metadatasource)
     elif(args.rosbag != None):
-        print("Loading rosbag")
+        logging.info("Loading rosbag")
         ProcessRosbagFile(args, dbobject, json_channels, metadatasource)
         
     else:
-        print("No data file source specified")
+        logging.error("No data file source specified")
         sys.exit()
 
-    print("All done")
+    logging.info("All done")
       
 if __name__ == '__main__':
+    logging.basicConfig(filename="insert.log", encoding='utf-8', level=logging.DEBUG)
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+
+    logging.info("datainsert start")
     parser = argparse.ArgumentParser()
     parser.add_argument('--dynamodb', help='dynamo url string', required=False)
     parser.add_argument('--mongodb', help='mongodb url string', required=False)
@@ -241,7 +242,7 @@ if __name__ == '__main__':
     try:
         args = parser.parse_args()
     except:
-        print("argument parsing failed")
+        logging.error("argument parsing failed")
         sys.exit(-1)
     
     main(args)

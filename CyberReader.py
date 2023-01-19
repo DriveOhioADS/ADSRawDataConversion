@@ -7,7 +7,8 @@ import cyberreaderlib as cyberreader
 from google.protobuf.json_format import MessageToJson
 from databaseinterface import DatabaseDynamo, DatabaseMongo
 import pyprog
-import pymongo
+import logging
+
 class CyberReader:
     def __init__(self, foldername=None, basefilename=None):
         self.foldername = foldername
@@ -20,32 +21,29 @@ class CyberReader:
         self.message_process_count = 0
         self.totalmessagecount = 0
 
-    # def ScanChannelFolder(self):
-    #     all_channels = []
-    #     #folderlist = os.listdir(self.foldername)
-    #     # todo: path combine instead of +
-    #     filelist = glob.glob(self.foldername+"/"+self.basefilename+"*")
-    #     for file in filelist:
-    #         new_channels = []
-    #         new_channels = self.ScanChannelsSingleFile(file)
-    #         #print(len(new_channels))
-    #         all_channels = list(set(all_channels + new_channels))
-    #     self.unique_channels = all_channels
-    #     return all_channels
+    def ScanChannelFolder(self):
+        all_channels = []
+        filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
+        for file in filelist:
+            new_channels = []
+            new_channels = self.ScanChannelsSingleFile(file)
+            #print(len(new_channels))
+            all_channels = list(set(all_channels + new_channels))
+        self.unique_channels = all_channels
+        return all_channels
     
-    # def ScanChannelsSingleFile(self, filename):
-    #     unqiue_channel = []
-    #     # filename = sys.argv[1]
-    #     self.pbfactory = cyberreader.ProtobufFactory()
-    #     reader = cyberreader.RecordReader(filename)
-    #     for channel in reader.GetChannelList():
-    #         desc = reader.GetProtoDesc(channel)
-    #         self.pbfactory.RegisterMessage(desc)
-    #         unqiue_channel.append(channel)
-    #         #print(channel)
-    #     self.unique_channels = unqiue_channel
-    #     self.reader = None
-    #     return unqiue_channel
+    def ScanChannelsSingleFile(self, filename):
+        unqiue_channel = []
+        self.pbfactory = cyberreader.ProtobufFactory()
+        reader = cyberreader.RecordReader(filename)
+        for channel in reader.GetChannelList():
+            desc = reader.GetProtoDesc(channel)
+            self.pbfactory.RegisterMessage(desc)
+            unqiue_channel.append(channel)
+            #print(channel)
+        self.unique_channels = unqiue_channel
+        self.reader = None
+        return unqiue_channel
 
     # def GetNextMessageFromFolder(self):
     #     if(self.filelist == None):
@@ -118,11 +116,15 @@ class CyberReader:
                              channelList=None,
                              forceInsert=False):
         
-        print("Inserting cyberdata from folder " + self.foldername)
+        logging.info("Scanning folder to get list of all channels:")
+        all_channels = self.ScanChannelFolder()
+        for channel in all_channels:
+            print(channel)
+        
+        logging.info("Inserting cyberdata from folder " + self.foldername)
 
         unique_channels = []
-        #todo fix the path combine
-        filelist = glob.glob(self.foldername+"/"+self.basefilename+"*")
+        filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
         self.totalmessagecount = 0
         for filename in filelist:
             pbfactory = cyberreader.ProtobufFactory()
@@ -132,7 +134,6 @@ class CyberReader:
                 pbfactory.RegisterMessage(desc)
                 unique_channels.append(channel)
             
-            #have todo this for each file in case allow is blank and gets set
             deny_channels=None
             allow_channels=None
             if(channelList != None):
@@ -147,9 +148,8 @@ class CyberReader:
                 if(deny in allow_channels):
                     allow_channels.remove(deny)
             #have to wait until startime is found for each file
-            print(f"Checking cyber metadata for file {filename}")
+            logging.info(f"Checking cyber metadata for file {filename}")
         
-            #todo check time format for start and end
             specificmeta = {
                 'filename': filename,
                 'foldername': self.foldername,
@@ -158,7 +158,7 @@ class CyberReader:
                 'msgnum': reader.header.message_number,
                 'size': reader.header.size,
                 'topics': unique_channels,
-                #'deny': deny_channels,
+                #'deny': deny_channels, #having the full list and deny/accept was too much for mongo
                 #'allow': allow_channels,
                 'type': 'cyber'
             }
@@ -167,22 +167,22 @@ class CyberReader:
             if(metadata_search == None):
                 result = dbobject.db_insert("metadata", specificmeta)
                 if(result == -1):
-                    print(f"metadata insert from cyber failed {filename}")
+                    logging.error(f"metadata insert from cyber failed {filename}")
                     return -1
                 #check the insert was good
                 metadata_search = dbobject.db_find_metadata_by_id('metadata', result.inserted_id)
                 if(metadata_search == None):
-                    print(f"metadata check from cyber failed {filename}")
+                    logging.error(f"metadata check from cyber failed {filename}")
                     return -1
             elif not forceInsert:
-                print(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
+                logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
                 continue
                            
             #start the message extract process
 
             message = cyberreader.RecordMessage()
             num_msg = reader.header.message_number
-            print("Inserting data # -> " + str(num_msg))
+            logging.info("Inserting data # -> " + str(num_msg))
             prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
             prog.update()
             msgcount = 0
@@ -196,32 +196,31 @@ class CyberReader:
                 message_type = reader.GetMessageType(message.channel_name)
                 msg = pbfactory.GenerateMessageByType(message_type)
                 msg.ParseFromString(message.content)
-                #print(message.channel_name)
                 if(message.channel_name not in deny_channels and
                    message.channel_name in allow_channels):
                     try:
                         jdata = json.loads(MessageToJson(msg))
                     except:
-                        print("json conversion failed")
+                        logging.exception("json conversion failed")
                         sys.exit(-1)
                     
                     try:
                         ntime = datetime.utcfromtimestamp(message.time/1000000000)#t.secs + (t.nsecs / 10e6)).timestamp()
                     except:
-                        print("cyber time to timestamp failed")
+                        logging.exception("cyber time to timestamp failed")
                         sys.exit(-1)
                         
                     newmeta_id = metadata_search
                     newitem = {
                         "topic": message.channel_name,
                         "timeField": ntime,
-                        "size": len(message.content), #todo check this
+                        "size": len(message.content), 
                         "msg_type": "",     #msg._type,
                         "metadataID": newmeta_id}
                     try:
                         jdata = json.loads(MessageToJson(msg))
                     except Exception as e:
-                        print("cyber message to json failed")
+                        logging.exception("cyber message to json failed")
                         return -1
                     
                     newitem.update(jdata)
@@ -236,30 +235,38 @@ class CyberReader:
             print(f"Message Count {msgcount}")
                          
 if __name__ == "__main__":
-    #cr = CyberReader("/mnt/e/van/apollo_ridges_cyberbags",basefilename='20221117125313.record')
-    cr = CyberReader("../delete",basefilename='20221117125313.record')
+    
+    cr = CyberReader(sys.argv[1],basefilename=sys.argv[2])
+    
+    # scan a folder
     #ch = cr.ScanChannelFolder()
     #print(ch)
     
+    # read a single file
     # cr.SetCurrentFile('20221117125313.record.00000')
     # msg = 1
     # while (msg != 0):
     #     msg = cr.GetNextMessageFromFile()
     #     print(msg)
     
+    # read a folder with re-entry
     # msg = 1
     # while(msg != None):
     #     msg = cr.GetNextMessageFromFolder()
     #     print(cr.message_process_count)
-    #172.31.48.1
-    
-    deny_channels = set(["/apollo/sensor/camera/front_6mm/image",
+
+    logging.basicConfig(filename="cyberreader.log", encoding='utf-8', level=logging.DEBUG)
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+
+    deny_channels = set([
+        "/apollo/sensor/camera/front_6mm/image",
         "/apollo/sensor/camera/front_6mm/image/compressed",
         "/apollo/sensor/camera/front_25mm/image",
         "/apollo/sensor/camera/front_25mm/image/compressed",
         "/apollo/sensor/velodyne32/PointCloud2",
         "/apollo/sensor/velodyne32/VelodyneScan",
-        "/apollo/prediction/perception_obstacles"])
+        "/apollo/prediction/perception_obstacles"
+        ])
     
     channelList={
                 'deny': deny_channels,
