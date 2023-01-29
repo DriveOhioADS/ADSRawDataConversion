@@ -1,4 +1,4 @@
-sudo apt install -y python3-rosbag
+sudo apt install -y python3-rosbag python3-pip
 sudo apt install -y python3-numpy python3-scipy python3-matplotlib
 sudo pip3 install boto3
 sudo pip3 install pymongo
@@ -18,3 +18,11 @@ sudo pip3 install pyprog
 # sudo apt install -y ros-dev-tools
 
 sudo apt install -y python3-sensor-msgs
+sudo apt install -y python3-protobuf
+sudo apt install -y protobuf-compiler
+make
+
+# wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc |  gpg --dearmor | sudo tee /usr/share/keyrings/mongodb.gpg > /dev/null
+# echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+# sudo apt update
+# sudo apt install mongodb-org

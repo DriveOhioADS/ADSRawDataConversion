@@ -1,23 +1,25 @@
 import sys
+import json
+#from bson import json_util
+#from rospy_message_converter import message_converter
+#from datetime import datetime
+#import sensor_msgs.point_cloud2 as pc2
+#import numpy as np
 import pymongo
+
+import uuid
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
-import pymongo
-import json
-from bson import json_util
-from rospy_message_converter import message_converter
-from datetime import datetime
-import sensor_msgs.point_cloud2 as pc2
-import numpy as np
-import uuid
 from decimal import Decimal
-from google.protobuf.json_format import MessageToJson
+#from google.protobuf.json_format import MessageToJson
+import logging
 
 class DatabaseInterface:
     def __init__(self, uristring):
         self.uristring = uristring
         self.cname = None
+        self.type = ''
 
     def check(self):
         print("class check")
@@ -30,16 +32,23 @@ class DatabaseInterface:
 
     def setCollectionName(self, cname):
         self.cname = cname
-
+    
+    def CreateDatabaseInterface(type, uri, dbname):
+        if(type == 'mongo'):
+            obj = DatabaseMongo(uri, dbname)
+        elif(type == 'dynamo'):
+            obj = DatabaseDynamo(uri, dbname)
+        obj.type = type
+        return obj
 
 class DatabaseMongo(DatabaseInterface):
-    def __init__(self, uristring):
+    def __init__(self, uristring, dbname):
         super().__init__(uristring)
         self.mycol = None
         self.mydb = None
         self.myclient = None
-        self.dname = "rosbag"
-        self.cname = "rosbag"
+        self.dname = dbname
+        #self.cname = collection
         print("init")
 
     def db_insert_main(self, newdata):
@@ -56,16 +65,24 @@ class DatabaseMongo(DatabaseInterface):
             print("\ndb_insert DocumentTooLarge")
             return -1
         except Exception as ex:
-            print("\ndb_insert Exception")
-            #template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-            #message = template.format(type(ex).__name__, ex.args)
-            #print(message)
+            logging.error("\ndb_insert Exception")      
+            logging.error(newdata)         
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            logging.error(message)
+            sys.exit(-1)
             return -1
 
     def db_connect(self):
-        myclient = pymongo.MongoClient(self.uristring)  # "mongodb://localhost:27017/")
-        mydb = myclient["rosbag"]
+        mclient = pymongo.MongoClient(self.uristring)  # "mongodb://localhost:27017/")
+        mydb = mclient[self.dname]
         mycol = None
+        try:
+            mclient.server_info() 
+        except pymongo.errors.ServerSelectionTimeoutError as err:
+            logging.error(f"error -> unable to connect with mongo server {self.uristring}")
+            sys.exit(-1)
+
         for name in mydb.list_collection_names():
             print(name)
             if (name == self.cname):
@@ -78,7 +95,7 @@ class DatabaseMongo(DatabaseInterface):
             mydb.create_collection(self.cname, timeseries={'timeField': 'timeField'})
             mycol = mydb[self.cname]
 
-        self.myclient = myclient
+        self.myclient = mclient
         self.mydb = mydb
         self.mycol = mycol
 
@@ -108,7 +125,7 @@ def generate_unique_id():
 
 
 class DatabaseDynamo(DatabaseInterface):
-    def __init__(self, uristring):
+    def __init__(self, uristring, collection):
         super().__init__(uristring)
         print("DynamoDB init")
         self.ddb = None

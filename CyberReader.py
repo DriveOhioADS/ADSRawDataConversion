@@ -124,7 +124,7 @@ class CyberReader:
         logging.info("Inserting cyberdata from folder " + self.foldername)
 
         unique_channels = []
-        filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
+        filelist = glob.glob(os.path.join(self.foldername,self.basefilename + "*"))
         self.totalmessagecount = 0
         for filename in filelist:
             pbfactory = cyberreader.ProtobufFactory()
@@ -213,10 +213,10 @@ class CyberReader:
                     newmeta_id = metadata_search
                     newitem = {
                         "topic": message.channel_name,
-                        "timeField": ntime,
+                        "timeField": ntime, #remove isoformat todo .isoformat()
                         "size": len(message.content), 
                         "msg_type": "",     #msg._type,
-                        "metadataID": newmeta_id}
+                        "metadataID": newmeta_id} #todo remove str force 
                     try:
                         jdata = json.loads(MessageToJson(msg))
                     except Exception as e:
@@ -224,8 +224,18 @@ class CyberReader:
                         return -1
                     
                     newitem.update(jdata)
-                    dbobject.db_insert_main(newitem)
-                
+                    # if(newitem['topic'] == 'apollo/sensor/gnss/best_pose' or
+                    #     newitem['topic'] == '/apollo/prediction' or
+                    #     newitem['topic'] == "/apollo/prediction/perception_obstacles"):
+                    # js = json.dumps(newitem)
+                    # print("\n"+newitem['topic'])
+                    # print(f"\nRaw: {newitem['size']}")
+                    
+                    # print(f"\nJSON Size:{len(js)}")
+                    if(newitem['size'] < 20000):
+                        dbobject.db_insert_main(newitem)
+                    else:
+                        logging.warning(f"Skipping message {newitem['topic']} because of size")
                     #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
                     #
                     #print(jdata)
@@ -236,8 +246,8 @@ class CyberReader:
                          
 if __name__ == "__main__":
     
-    cr = CyberReader(sys.argv[1],basefilename=sys.argv[2])
-    
+    #cr = CyberReader(foldername=sys.argv[1], basefilename=sys.argv[2])
+    cr = CyberReader('/mnt/h/cyberdata','20221117125313.record.00000')
     # scan a folder
     #ch = cr.ScanChannelFolder()
     #print(ch)
@@ -265,7 +275,10 @@ if __name__ == "__main__":
         "/apollo/sensor/camera/front_25mm/image/compressed",
         "/apollo/sensor/velodyne32/PointCloud2",
         "/apollo/sensor/velodyne32/VelodyneScan",
-        "/apollo/prediction/perception_obstacles"
+        #"/apollo/prediction/perception_obstacles",
+        #"/apollo/perception/obstacles",
+        #"/apollo/prediction",
+        #"/apollo/planning"
         ])
     
     channelList={
@@ -273,7 +286,7 @@ if __name__ == "__main__":
                 'allow': None
                 }
     
-    dbobject = DatabaseMongo("mongodb://172.31.32.1:27017")
+    dbobject = DatabaseMongo("mongodb://windows:27017",'cyber')
     dbobject.setCollectionName("cyber")
     dbobject.db_connect()
     metadatasource = {

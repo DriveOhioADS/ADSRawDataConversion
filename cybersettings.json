@@ -1,0 +1,34 @@
+{
+    "metadata":{
+        "vehicleID": 8,
+        "experimentID": 8,
+        "other": 0
+    },
+    "file":
+    {
+        "type": "cyber",
+        "folder": "/mnt/h/cyberdata",
+        "filebase": "20221117125313.record."
+    },
+    "database":
+    {
+        "type": "mongo",
+        "uri": "mongodb://127.0.0.1:27017",
+        "collection": "cyber",
+        "databasename": "cyber"
+    },
+    "channelList":{
+        "deny": [
+            "/apollo/sensor/camera/front_6mm/image",
+            "/apollo/sensor/camera/front_6mm/image/compressed",
+            "/apollo/sensor/camera/front_25mm/image",
+            "/apollo/sensor/camera/front_25mm/image/compressed",
+            "/apollo/sensor/velodyne32/PointCloud2",
+            "/apollo/sensor/velodyne32/VelodyneScan",
+            "/apollo/planning",
+            "/apollo/prediction",
+            "/apollo/perception",
+            "/apollo/perception/obstacles"
+        ]
+    }
+ }
