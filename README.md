@@ -1,35 +1,57 @@
 # ADSRosbagToMongoDB
-This repo contains scripts to convert ROSBAG data from autonomous vehicles to MongoDB.
-Not included currently: camera and LiDAR feeds
+This repo contains scripts to convert ROSBAG and Cyber data from autonomous vehicles to MongoDB or dynamodb.
+Not included currently: camera and LiDAR (upcoming with compression)
 
 # Usage
-``` python3 datainsert.py --mongodb http://localhost:27017 --rosbagb rosbag.bag --metadatafile meta.json --collection rosbag ```  
+``` python3 datainsert.py --config settings.json ```
 
+Example settings file:
 
---dynamodb Dynamo URI string
-OR
---mongodb Mongo URI string
+``` 
+{
+    "metadata":{
+        "vehicleID": 8,
+        "experimentID": 8,
+        "other": 0
+    },
+    "file":
+    {
+        "type": "cyber",
+        "folder": "cyberdata/",
+        "filebase": "123456.record."
+    },
+    "database":
+    {
+        "type": "mongo",
+        "uri": "mongodb://127.0.0.1:27017",
+        "collection": "cyber",
+        "databasename": "cyber"
+    },
+    "channelList":{
+        "deny": [
+            "/apollo/sensor/camera/front_6mm/image",
+            "/apollo/sensor/camera/front_6mm/image/compressed",
+            "/apollo/sensor/camera/front_25mm/image",
+            "/apollo/sensor/camera/front_25mm/image/compressed",
+            "/apollo/sensor/velodyne32/PointCloud2",
+            "/apollo/sensor/velodyne32/VelodyneScan"
+        ]
+    }
+ }
+ ```
 
---cyberfolder location of folder with cyber data
---cyber filebase filename without the .00000  
-OR
---rosbag rosbag file for processing  
+Database type of mongo or dynamo
+File type of cyber or rosbag (only single file for rosbags)
 
---metadatafile json file with metadata
---collection name of database table or collection
+Other switches:
+```
 --lidar include lidar data
 --force insert even if metadata is present
---channellist list of deny and accept channels (both cyber and rosbag)
+```
 
 # Setup
 ```
-sudo apt install -y python3-rosbag
-sudo apt install -y python3-numpy python3-scipy python3-matplotlib
-sudo pip3 install boto3
-sudo pip3 install pymongo
-sudo pip3 install rospy_message_converter
-sudo pip3 install pyprog
-sudo apt install -y python3-sensor-msgs
+./setup.sh
 ```
 
 # Metadata added by the program
