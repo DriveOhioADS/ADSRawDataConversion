@@ -186,6 +186,7 @@ class CyberReader:
             prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
             prog.update()
             msgcount = 0
+            numinsert = 0
             while reader.ReadMessage(message):
                 self.totalmessagecount = self.totalmessagecount + 1
                 msgcount = msgcount + 1
@@ -232,16 +233,18 @@ class CyberReader:
                     # print(f"\nRaw: {newitem['size']}")
                     
                     # print(f"\nJSON Size:{len(js)}")
-                    if(newitem['size'] < 2000):
+                    if(newitem['size'] < 200000):
                         dbobject.db_insert_main(newitem)
                     else:
                         logging.warning(f"Skipping message {newitem['topic']} because of size")
+                    numinsert = numinsert + 1
                     #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
                     #
                     #print(jdata)
                 #else:
                 #    print("Ignore " + message.channel_name)
             prog.end()
+            print(f"Insert Count:{numinsert}")
             print(f"Message Count {msgcount}")
                          
 if __name__ == "__main__":
