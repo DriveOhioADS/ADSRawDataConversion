@@ -22,7 +22,7 @@ def ProcessRosbagFile(file, dbobject, channelList, metadata, force):
     from RosReader import RosReader
     rr = RosReader()
     return rr.ProcessFile(dbobject=dbobject, metadatasource=metadata,
-                          channelList=channelList, 
+                          channelList=channelList,
                           force=force, process_lidar=False)
 
 
@@ -42,15 +42,15 @@ def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata
         channelList = {
                     'deny': deny,
                     'allow': allow
-                    }  
-    cr.InsertDataFromFolder(dbobject, metadata, channelList)   
+                    }
+    cr.InsertDataFromFolder(dbobject, metadata, channelList)
     return 0
 
 def checkKey(dict, key):
     if(key in dict):
         return True
     return False
-    
+
 def main(args):
     try:
         with open(args.config, 'r') as file:
@@ -75,7 +75,7 @@ def main(args):
         logging.error(f"failed to load config from file {args.config}")
         return -1
 
-    
+
     if (config['database']['type'] == 'mongo'):
         logging.info(f"Connecting to database at {config['database']['uri']} / {config['database']['collection']}")
         #dbobject = DatabaseMongo(args.mongodb)
@@ -83,42 +83,42 @@ def main(args):
     elif (config['database']['type'] ==  'dynamo'):
         logging.info(f"Connecting to database at {config['database']['uri']} / {config['database']['collection']}")
         #dbobject = DatabaseDynamo(args.dynamodb)
-        #dbobject.check()    
+        #dbobject.check()
     else:
         logging.error(f"No database specified: {config['database']['type']}")
         sys.exit()
-    
-    dbobject = DatabaseInterface.CreateDatabaseInterface(config['database']['type'], 
-                                                         config['database']['uri'], 
+
+    dbobject = DatabaseInterface.CreateDatabaseInterface(config['database']['type'],
+                                                         config['database']['uri'],
                                                          config['database']['databasename'])
 
     dbobject.setCollectionName(config['database']['collection'])
-    dbobject.db_connect()  
-    
+    dbobject.db_connect()
+
     json_channels = None
     if('channelList' in config):
         json_channels = config['channelList']
-    
+
     if(config['file']['type'] == 'cyber'):
         logging.info('Processing Cyber data')
-        ProcessCyberFile(cyberfolder=config['file']['folder'],cyberfilebase=config['file']['filebase'], 
+        ProcessCyberFile(cyberfolder=config['file']['folder'],cyberfilebase=config['file']['filebase'],
                          dbobject=dbobject,
                          channelList=json_channels,
                          metadata=config['metadata'], force=args.force)
     elif(config['file']['type'] == 'rosbag'):
         logging.info("Loading rosbag")
         ProcessRosbagFile(file=config['file']['filename'],
-                          dbobject=dbobject, 
-                          channeList=json_channels, 
-                          metadata=config['metadata'], force=args.force)  
+                          dbobject=dbobject,
+                          channeList=json_channels,
+                          metadata=config['metadata'], force=args.force)
     else:
         logging.error(f"No data file source specified: {config['file']['type']}")
         sys.exit()
 
     logging.info("All done")
-      
+
 if __name__ == '__main__':
-    logging.basicConfig(filename="insert.log", encoding='utf-8', level=logging.DEBUG)
+    logging.basicConfig(filename="insert.log", level=logging.DEBUG)
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
     logging.info("datainsert start")
@@ -131,5 +131,5 @@ if __name__ == '__main__':
     except:
         logging.error("argument parsing failed")
         sys.exit(-1)
-    
+
     main(args)
