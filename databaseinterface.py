@@ -32,7 +32,7 @@ class DatabaseInterface:
 
     def setCollectionName(self, cname):
         self.cname = cname
-    
+
     def CreateDatabaseInterface(type, uri, dbname):
         if(type == 'mongo'):
             obj = DatabaseMongo(uri, dbname)
@@ -65,8 +65,8 @@ class DatabaseMongo(DatabaseInterface):
             print("\ndb_insert DocumentTooLarge")
             return -1
         except Exception as ex:
-            logging.error("\ndb_insert Exception")      
-            logging.error(newdata)         
+            logging.error("\ndb_insert Exception")
+            logging.error(newdata)
             template = "An exception of type {0} occurred. Arguments:\n{1!r}"
             message = template.format(type(ex).__name__, ex.args)
             logging.error(message)
@@ -74,11 +74,11 @@ class DatabaseMongo(DatabaseInterface):
             return -1
 
     def db_connect(self):
-        mclient = pymongo.MongoClient(self.uristring)  # "mongodb://localhost:27017/")
+        mclient = pymongo.MongoClient("mongodb://localhost:27017/")
         mydb = mclient[self.dname]
         mycol = None
         try:
-            mclient.server_info() 
+            mclient.server_info()
         except pymongo.errors.ServerSelectionTimeoutError as err:
             logging.error(f"error -> unable to connect with mongo server {self.uristring}")
             sys.exit(-1)
@@ -92,7 +92,7 @@ class DatabaseMongo(DatabaseInterface):
 
         if (mycol == None):
             print("Creating the collection: " + self.cname)
-            mydb.create_collection(self.cname, timeseries={'timeField': 'timeField'})
+            mydb.create_collection(self.cname)#, timeseries={'timeField': 'timeField'})
             mycol = mydb[self.cname]
 
         self.myclient = mclient
@@ -105,7 +105,7 @@ class DatabaseMongo(DatabaseInterface):
 
     def db_find_metadata_by_id(self, cname, key):
         return self.__db_find_metadata(cname, {'_id': {'$eq':key}})
-        
+
     def __db_find_metadata(self, cname, filter):
         #key = sdata['startTime']
         result = self.mydb[cname].find_one(filter)
@@ -137,7 +137,7 @@ class DatabaseDynamo(DatabaseInterface):
         #                     aws_access_key_id="anything",
         #                     aws_secret_access_key="anything",
         #                     region_name="us-west-2")
-        
+
         ddb = boto3.resource('dynamodb', endpoint_url=self.uristring,
                              aws_access_key_id="anything",
                              aws_secret_access_key="anything",
@@ -162,11 +162,11 @@ class DatabaseDynamo(DatabaseInterface):
     def db_find_metadata_by_id(self, cname, key):
         filter_to_find = Attr('_id').eq(key)
         return self.__db_find_metadata(cname, filter_to_find)
-    
+
     def __db_find_metadata(self, cname, filter_to_find):
         sdata = json.loads(json.dumps(sdata), parse_float=Decimal)
         #item_to_find = sdata['startTime']
-        
+
         ttable = self.ddb.Table(cname)
         try:
             result = ttable.scan(FilterExpression=filter_to_find)
@@ -182,7 +182,7 @@ class DatabaseDynamo(DatabaseInterface):
         # if (result != None):
         #    return result["_id"]
 
-    
+
     def db_insert_main(self, newdata):
         return self.db_insert(self.cname, newdata)
 
@@ -260,5 +260,3 @@ class DatabaseDynamo(DatabaseInterface):
                 print("failed to create table")
                 return -1
         return -1
-
-

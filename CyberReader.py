@@ -8,6 +8,8 @@ from google.protobuf.json_format import MessageToJson
 from databaseinterface import DatabaseDynamo, DatabaseMongo
 import pyprog
 import logging
+import s3fs
+import boto3
 
 class CyberReader:
     def __init__(self, foldername=None, basefilename=None):
@@ -20,18 +22,46 @@ class CyberReader:
         self.filelist = None
         self.message_process_count = 0
         self.totalmessagecount = 0
+        with open('cred.json','rb') as f:
+            self.cred = json.load(f)
+        self.AWS_deploy = True
 
     def ScanChannelFolder(self):
         all_channels = []
-        filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
-        for file in filelist:
-            new_channels = []
-            new_channels = self.ScanChannelsSingleFile(file)
-            #print(len(new_channels))
-            all_channels = list(set(all_channels + new_channels))
+        if self.AWS_deploy:
+            client = boto3.client('s3',aws_access_key_id=self.cred['ACCESS_ID'],
+                                    aws_secret_access_key=self.cred['ACCESS_KEY'],
+                                    region_name="us-east-2")
+            paginator = client.get_paginator('list_objects_v2')
+            result = paginator.paginate(Bucket='ohio-lambda-rgeng',StartAfter='2018')
+            filelist = []
+            target = self.foldername[1:]
+            for page in result:
+                if "Contents" in page:
+                    for key in page[ "Contents" ]:
+                        keyString = key[ "Key" ]
+                        if keyString[:len(target)] == target:
+                            filelist.append(keyString)
+
+            self.bags = [file for file in filelist if file!= target]
+            s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'],
+                                        secret=self.cred['ACCESS_KEY'])
+            for file in self.bags:
+                new_channels = []
+                with s3.open('ohio-lambda-rgeng/'+file, 'rb') as f:
+                    new_channels = self.ScanChannelsSingleFile(f)
+                    #print(len(new_channels))
+                    all_channels = list(set(all_channels + new_channels))
+        else:
+            filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
+            for file in filelist:
+                new_channels = []
+                new_channels = self.ScanChannelsSingleFile(file)
+                #print(len(new_channels))
+                all_channels = list(set(all_channels + new_channels))
         self.unique_channels = all_channels
         return all_channels
-    
+
     def ScanChannelsSingleFile(self, filename):
         unqiue_channel = []
         self.pbfactory = cyberreader.ProtobufFactory()
@@ -61,15 +91,15 @@ class CyberReader:
     #             return None
     #         else:
     #             return msg
-        
-    
+
+
     # def SetCurrentFile(self, filename):
     #     self.curr_filename = filename
     #     self.reader = None
     #     print(self.message_process_count)
     #     print("Moving to file: "+ self.curr_filename)
 
-        
+
     # def GetNextMessageFromFile(self):
     #     if(self.reader == None):
     #         self.reader = cyberreader.RecordReader(self.curr_filename)
@@ -79,7 +109,7 @@ class CyberReader:
     #     if(self.pbfactory == None):
     #         print("need to scan channels first")
     #         sys.exit(-1)
-               
+
     #     message = self.message
     #     if(self.reader.ReadMessage(message)):
     #         self.message_process_count = self.message_process_count + 1
@@ -111,16 +141,16 @@ class CyberReader:
     #     else:
     #         # all out of messages for this file
     #         return None
-        
+
     def InsertDataFromFolder(self, dbobject, metadatasource,
                              channelList=None,
                              forceInsert=False):
-        
+
         logging.info("Scanning folder to get list of all channels:")
         all_channels = self.ScanChannelFolder()
         for channel in all_channels:
             print(channel)
-        
+
         logging.info("Inserting cyberdata from folder " + self.foldername)
 
         unique_channels = []
@@ -133,7 +163,7 @@ class CyberReader:
                 desc = reader.GetProtoDesc(channel)
                 pbfactory.RegisterMessage(desc)
                 unique_channels.append(channel)
-            
+
             deny_channels=None
             allow_channels=None
             if(channelList != None):
@@ -149,7 +179,7 @@ class CyberReader:
                     allow_channels.remove(deny)
             #have to wait until startime is found for each file
             logging.info(f"Checking cyber metadata for file {filename}")
-        
+
             specificmeta = {
                 'filename': filename,
                 'foldername': self.foldername,
@@ -177,7 +207,7 @@ class CyberReader:
             elif not forceInsert:
                 logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
                 continue
-                           
+
             #start the message extract process
 
             message = cyberreader.RecordMessage()
@@ -190,10 +220,10 @@ class CyberReader:
             while reader.ReadMessage(message):
                 self.totalmessagecount = self.totalmessagecount + 1
                 msgcount = msgcount + 1
-                
+
                 prog.set_stat(msgcount)
                 prog.update()
-                
+
                 message_type = reader.GetMessageType(message.channel_name)
                 msg = pbfactory.GenerateMessageByType(message_type)
                 msg.ParseFromString(message.content)
@@ -204,26 +234,26 @@ class CyberReader:
                     except:
                         logging.exception("json conversion failed")
                         sys.exit(-1)
-                    
+
                     try:
                         ntime = datetime.utcfromtimestamp(message.time/1000000000)#t.secs + (t.nsecs / 10e6)).timestamp()
                     except:
                         logging.exception("cyber time to timestamp failed")
                         sys.exit(-1)
-                        
+
                     newmeta_id = metadata_search
                     newitem = {
                         "topic": message.channel_name,
                         "timeField": ntime, #remove isoformat todo .isoformat()
-                        "size": len(message.content), 
+                        "size": len(message.content),
                         "msg_type": "",     #msg._type,
-                        "metadataID": newmeta_id} #todo remove str force 
+                        "metadataID": newmeta_id} #todo remove str force
                     try:
                         jdata = json.loads(MessageToJson(msg))
                     except Exception as e:
                         logging.exception("cyber message to json failed")
                         return -1
-                    
+
                     newitem.update(jdata)
                     # if(newitem['topic'] == 'apollo/sensor/gnss/best_pose' or
                     #     newitem['topic'] == '/apollo/prediction' or
@@ -231,7 +261,7 @@ class CyberReader:
                     # js = json.dumps(newitem)
                     # print("\n"+newitem['topic'])
                     # print(f"\nRaw: {newitem['size']}")
-                    
+
                     # print(f"\nJSON Size:{len(js)}")
                     if(newitem['size'] < 200000):
                         dbobject.db_insert_main(newitem)
@@ -246,22 +276,22 @@ class CyberReader:
             prog.end()
             print(f"Insert Count:{numinsert}")
             print(f"Message Count {msgcount}")
-                         
+
 if __name__ == "__main__":
-    
+
     #cr = CyberReader(foldername=sys.argv[1], basefilename=sys.argv[2])
     cr = CyberReader('/mnt/h/cyberdata','20221117125313.record.00000')
     # scan a folder
     #ch = cr.ScanChannelFolder()
     #print(ch)
-    
+
     # read a single file
     # cr.SetCurrentFile('20221117125313.record.00000')
     # msg = 1
     # while (msg != 0):
     #     msg = cr.GetNextMessageFromFile()
     #     print(msg)
-    
+
     # read a folder with re-entry
     # msg = 1
     # while(msg != None):
@@ -283,12 +313,12 @@ if __name__ == "__main__":
         #"/apollo/prediction",
         #"/apollo/planning"
         ])
-    
+
     channelList={
                 'deny': deny_channels,
                 'allow': None
                 }
-    
+
     dbobject = DatabaseMongo("mongodb://windows:27017",'cyber')
     dbobject.setCollectionName("cyber")
     dbobject.db_connect()
@@ -297,5 +327,5 @@ if __name__ == "__main__":
                         'experimentID': 8,
                         'other': 0,
                      }
-    
+
     #cr.InsertDataFromFolder(dbobject, metadatasource, channelList, forceInsert=True)
