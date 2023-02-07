@@ -24,7 +24,7 @@ class CyberReader:
         self.totalmessagecount = 0
         with open('cred.json','rb') as f:
             self.cred = json.load(f)
-        self.AWS_deploy = True
+        self.AWS_deploy = False
 
     def ScanChannelFolder(self):
         all_channels = []
