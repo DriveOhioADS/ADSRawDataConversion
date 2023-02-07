@@ -46,10 +46,13 @@ class RecordFileReader(RecordFileBase):
         self.end_of_file = False
 
     def Open(self, path) -> bool:
-        if not exists(path):
-            return False
+        # if not exists(path):
+        #     return False
 
-        self.f = open(path, mode="rb")
+        if isinstance(path, str):
+            self.f = open(path, mode="rb")
+        else:
+            self.f = path
         self.end_of_file = False
         if not self.ReadHeader():
             return False
@@ -77,20 +80,20 @@ class RecordFileReader(RecordFileBase):
         header = record_pb2.Header()
         if not self.ReadSectionT(section.size, header):
             return False
-        
+
         if not self.SetPosition(RecordFileReader.SIZEOF_SECTION + RecordFileReader.HEADER_LENGTH):
             return False
-        
+
         self.header = header
         return True
 
     def ReadIndex(self) -> bool:
         if not self.header.is_complete:
             return False
-        
+
         if not self.SetPosition(self.header.index_position):
             return False
-        
+
         section = Section()
         if not self.ReadSection(section):
             return False
@@ -130,7 +133,7 @@ class RecordFileReader(RecordFileBase):
         pos = self.CurrentPosition()
         if size > sys.maxsize - pos:
             return False
-        
+
         if not self.SetPosition(pos + size):
             return False
 
@@ -150,7 +153,7 @@ class RecordBase:
 
     def GetMessageNumber(self, channel_name) -> int:
         raise NotImplementedError()
-    
+
     def GetMessageType(self, channel_name) -> str:
         raise NotImplementedError()
 
@@ -202,7 +205,7 @@ class RecordReader(RecordBase):
     def ReadMessage(self, message, begin_time = 0, end_time = sys.maxsize) -> bool:
         if not self.is_valid:
             return False
-        
+
         if (begin_time > self.header.end_time) or (end_time < self.header.begin_time):
             return False
 
@@ -328,7 +331,7 @@ if __name__ == "__main__":
         desc = reader.GetProtoDesc(channel)
         pbfactory.RegisterMessage(desc)
         unqiue_channel.append(channel)
-        
+
     message = RecordMessage()
     count = 0
     while reader.ReadMessage(message):

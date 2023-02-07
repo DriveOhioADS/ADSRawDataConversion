@@ -154,11 +154,20 @@ class CyberReader:
         logging.info("Inserting cyberdata from folder " + self.foldername)
 
         unique_channels = []
-        filelist = glob.glob(os.path.join(self.foldername,self.basefilename + "*"))
+        if self.AWS_deploy:
+            filelist = self.bags
+        else:
+            filelist = glob.glob(os.path.join(self.foldername,self.basefilename + "*"))
         self.totalmessagecount = 0
         for filename in filelist:
             pbfactory = cyberreader.ProtobufFactory()
-            reader = cyberreader.RecordReader(filename)
+            if self.AWS_deploy:
+                s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
+                with s3.open('ohio-lambda-rgeng/'+filename, 'rb') as f:
+                    reader = cyberreader.RecordReader(f)
+            else:
+                reader = cyberreader.RecordReader(filename)
+
             for channel in reader.GetChannelList():
                 desc = reader.GetProtoDesc(channel)
                 pbfactory.RegisterMessage(desc)
@@ -173,6 +182,8 @@ class CyberReader:
                     allow_channels=channelList['allow']
             if(allow_channels == None):
                 allow_channels = set(unique_channels)
+            print(unique_channels)
+            print(allow_channels)
             #run check that gives priority to deny
             for deny in deny_channels:
                 if(deny in allow_channels):
