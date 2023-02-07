@@ -8,7 +8,7 @@ import apollopy.proto.record_pb2 as record_pb2
 import apollopy.proto.proto_desc_pb2 as proto_desc_pb2
 import json
 from google.protobuf.json_format import MessageToJson
-
+import s3fs
 
 class Section:
     def __init__(self) -> None:
@@ -48,15 +48,15 @@ class RecordFileReader(RecordFileBase):
     def Open(self, path) -> bool:
         # if not exists(path):
         #     return False
-
         if isinstance(path, str):
             self.f = open(path, mode="rb")
         else:
             self.f = path
+            self.AWS_deploy = True
         self.end_of_file = False
         if not self.ReadHeader():
             return False
-
+        
         return True
 
     def Close(self) -> None:
@@ -83,7 +83,6 @@ class RecordFileReader(RecordFileBase):
 
         if not self.SetPosition(RecordFileReader.SIZEOF_SECTION + RecordFileReader.HEADER_LENGTH):
             return False
-
         self.header = header
         return True
 
@@ -164,7 +163,7 @@ class RecordBase:
         raise NotImplementedError()
 
 class RecordReader(RecordBase):
-    def __init__(self, file) -> None:
+    def __init__(self, file, AWS) -> None:
         self.is_valid = False
         self.reach_end = False
         self.chunk = None
@@ -172,9 +171,17 @@ class RecordReader(RecordBase):
         self.message_index = 0
         self.channel_info = { }
         self.file_reader = RecordFileReader()
+        with open('cred.json','rb') as f:
+            self.cred = json.load(f)
 
-        if not self.file_reader.Open(file):
-            return
+        if not AWS:
+            if not self.file_reader.Open(file):
+                return
+        else:
+            s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
+            with s3.open('ohio-lambda-rgeng/'+file, 'rb') as f:
+                if not self.file_reader.Open(f):
+                    return
 
         self.chunk = record_pb2.ChunkBody()
         self.is_valid = True

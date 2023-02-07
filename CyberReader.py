@@ -44,14 +44,11 @@ class CyberReader:
                             filelist.append(keyString)
 
             self.bags = [file for file in filelist if file!= target]
-            s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'],
-                                        secret=self.cred['ACCESS_KEY'])
             for file in self.bags:
                 new_channels = []
-                with s3.open('ohio-lambda-rgeng/'+file, 'rb') as f:
-                    new_channels = self.ScanChannelsSingleFile(f)
-                    #print(len(new_channels))
-                    all_channels = list(set(all_channels + new_channels))
+                new_channels = self.ScanChannelsSingleFile(file)
+                #print(len(new_channels))
+                all_channels = list(set(all_channels + new_channels))
         else:
             filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
             for file in filelist:
@@ -65,7 +62,7 @@ class CyberReader:
     def ScanChannelsSingleFile(self, filename):
         unqiue_channel = []
         self.pbfactory = cyberreader.ProtobufFactory()
-        reader = cyberreader.RecordReader(filename)
+        reader = cyberreader.RecordReader(filename, AWS=True)
         for channel in reader.GetChannelList():
             desc = reader.GetProtoDesc(channel)
             self.pbfactory.RegisterMessage(desc)
@@ -162,9 +159,7 @@ class CyberReader:
         for filename in filelist:
             pbfactory = cyberreader.ProtobufFactory()
             if self.AWS_deploy:
-                s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
-                with s3.open('ohio-lambda-rgeng/'+filename, 'rb') as f:
-                    reader = cyberreader.RecordReader(f)
+                reader = cyberreader.RecordReader(filename, AWS=True)
             else:
                 reader = cyberreader.RecordReader(filename)
 
@@ -205,19 +200,20 @@ class CyberReader:
             }
             specificmeta.update(metadatasource)
             metadata_search = dbobject.db_find_metadata_by_startTime('metadata', specificmeta['startTime'])
-            if(metadata_search == None):
-                result = dbobject.db_insert("metadata", specificmeta)
-                if(result == -1):
-                    logging.error(f"metadata insert from cyber failed {filename}")
-                    return -1
-                #check the insert was good
-                metadata_search = dbobject.db_find_metadata_by_id('metadata', result.inserted_id)
-                if(metadata_search == None):
-                    logging.error(f"metadata check from cyber failed {filename}")
-                    return -1
-            elif not forceInsert:
-                logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
-                continue
+            # Removed for Debugging
+            # if(metadata_search == None):
+            #     result = dbobject.db_insert("metadata", specificmeta)
+            #     if(result == -1):
+            #         logging.error(f"metadata insert from cyber failed {filename}")
+            #         return -1
+            #     #check the insert was good
+            #     metadata_search = dbobject.db_find_metadata_by_id('metadata', result.inserted_id)
+            #     if(metadata_search == None):
+            #         logging.error(f"metadata check from cyber failed {filename}")
+            #         return -1
+            # elif not forceInsert:
+            #     logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
+            #     continue
 
             #start the message extract process
 
