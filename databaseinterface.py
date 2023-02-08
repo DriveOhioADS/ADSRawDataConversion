@@ -14,6 +14,7 @@ from botocore.exceptions import ClientError
 from decimal import Decimal
 #from google.protobuf.json_format import MessageToJson
 import logging
+import os
 
 class DatabaseInterface:
     def __init__(self, uristring):
@@ -112,6 +113,15 @@ class DatabaseMongo(DatabaseInterface):
         if result != None:
             return result["_id"]
         return None
+
+    def db_export(self, config):
+        with open('cred.json','rb') as f:
+            cred = json.load(f)
+        client = boto3.client('s3',aws_access_key_id=cred['ACCESS_ID'],
+                                    aws_secret_access_key=cred['ACCESS_KEY'],
+                                    region_name="us-east-2")
+        os.system('mongoexport --db '+config['database']['databasename'] +'--collection '+config['database']['collection']+' --out='+config['file']['folder']+'.json')
+        client.upload_file(config['file']['folder']+'.json','ohio-lambda-rgeng', config['file']['folder']+'/'+config['file']['folder']+'.json')
 
     # def insert_metadata(self, metadata):
     #     result = self.mydb[self.dname]["metadata"].insert_one(metadata)
