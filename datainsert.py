@@ -114,7 +114,7 @@ def main(args):
     else:
         logging.error(f"No data file source specified: {config['file']['type']}")
         sys.exit()
-
+    dbobject.db_export(config)
     logging.info("All done")
 
 if __name__ == '__main__':
