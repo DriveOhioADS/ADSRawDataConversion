@@ -15,15 +15,20 @@ from decimal import Decimal
 # import time
 from databaseinterface import DatabaseInterface#DatabaseDynamo, DatabaseMongo
 import logging
+import s3fs
 
 
 
 def ProcessRosbagFile(file, dbobject, channelList, metadata, force):
     from RosReader import RosReader
     rr = RosReader()
-    return rr.ProcessFile(dbobject=dbobject, metadatasource=metadata,
-                          channelList=channelList,
-                          force=force, process_lidar=False)
+    with open('cred.json','rb') as f:
+        cred = json.load(f)
+    s3 = s3fs.core.S3FileSystem(key=cred['ACCESS_ID'], secret=cred['ACCESS_KEY'])
+    with s3.open('ohio-lambda-rgeng/'+file, 'rb') as f:
+        return rr.ProcessFile(file=file, dbobject=dbobject, metadatasource=metadata,
+                            channelList=channelList,
+                            force=force, process_lidar=False)
 
 
 def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata, force):

@@ -123,10 +123,10 @@ class RosReader:
 
         return count
     
-    def ProcessFile(self, dbobject, metadata, channelList, force=False, process_lidar=False):
+    def ProcessFile(self, file, dbobject, metadata, channelList, force=False, process_lidar=False):
 
         #todo add channel list processing here
-        bag = rosbag.Bag(self.filename)#args.rosbag)
+        bag = rosbag.Bag(file)#args.rosbag)
 
         IncludeLiDAR = False
         if (process_lidar):#args.lidar):
