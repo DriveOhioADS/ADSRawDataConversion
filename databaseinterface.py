@@ -117,11 +117,13 @@ class DatabaseMongo(DatabaseInterface):
     def db_export(self, config):
         with open('cred.json','rb') as f:
             cred = json.load(f)
+        target = config['file']['folder'][1:]
+        target = target[:-1]
         client = boto3.client('s3',aws_access_key_id=cred['ACCESS_ID'],
                                     aws_secret_access_key=cred['ACCESS_KEY'],
                                     region_name="us-east-2")
-        os.system('mongoexport --db '+config['database']['databasename'] +'--collection '+config['database']['collection']+' --out='+config['file']['folder']+'.json')
-        client.upload_file(config['file']['folder']+'.json','ohio-lambda-rgeng', config['file']['folder']+'/'+config['file']['folder']+'.json')
+        os.system('mongoexport --db '+config['database']['databasename'] +'--collection '+config['database']['collection']+' --out='+target+'.json')
+        client.upload_file(target+'.json','ohio-lambda-rgeng', config['file']['folder']+target+'.json')
 
     # def insert_metadata(self, metadata):
     #     result = self.mydb[self.dname]["metadata"].insert_one(metadata)
