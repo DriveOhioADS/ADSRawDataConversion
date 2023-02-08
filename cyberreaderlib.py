@@ -56,7 +56,6 @@ class RecordFileReader(RecordFileBase):
         self.end_of_file = False
         if not self.ReadHeader():
             return False
-        
         return True
 
     def Close(self) -> None:
@@ -178,11 +177,15 @@ class RecordReader(RecordBase):
             if not self.file_reader.Open(file):
                 return
         else:
-            s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
-            with s3.open('ohio-lambda-rgeng/'+file, 'rb') as f:
-                if not self.file_reader.Open(f):
+            if isinstance(file, str):
+                s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
+                with s3.open('ohio-lambda-rgeng/'+file, 'rb') as f:
+                    if not self.file_reader.Open(f):
+                        return
+            else:
+                if not self.file_reader.Open(file):
                     return
-
+            
         self.chunk = record_pb2.ChunkBody()
         self.is_valid = True
         self.header = self.file_reader.header

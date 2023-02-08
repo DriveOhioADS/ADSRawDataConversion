@@ -13,6 +13,7 @@ import boto3
 
 class CyberReader:
     def __init__(self, foldername=None, basefilename=None):
+        print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n Created CyberReader Instance \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
         self.foldername = foldername
         self.basefilename = basefilename
         self.message = cyberreader.RecordMessage()
@@ -24,7 +25,7 @@ class CyberReader:
         self.totalmessagecount = 0
         with open('cred.json','rb') as f:
             self.cred = json.load(f)
-        self.AWS_deploy = False
+        self.AWS_deploy = True
 
     def ScanChannelFolder(self):
         all_channels = []
@@ -42,13 +43,18 @@ class CyberReader:
                         keyString = key[ "Key" ]
                         if keyString[:len(target)] == target:
                             filelist.append(keyString)
-
+            print("\n\n\n\n\n\n\n\n")
+            print("File List:", filelist)
+            print("\n\n\n\n\n\n\n\n")
             self.bags = [file for file in filelist if file!= target]
             for file in self.bags:
                 new_channels = []
+                print("\n\n\n\n\n\n\n\n")
                 new_channels = self.ScanChannelsSingleFile(file)
+                print(new_channels,"\n\n\n\n\n\n\n\n")
                 #print(len(new_channels))
                 all_channels = list(set(all_channels + new_channels))
+            # print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n", all_channels,"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
         else:
             filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
             for file in filelist:
@@ -146,7 +152,7 @@ class CyberReader:
         logging.info("Scanning folder to get list of all channels:")
         all_channels = self.ScanChannelFolder()
         for channel in all_channels:
-            print(channel)
+            print("Channel: ",channel)
 
         logging.info("Inserting cyberdata from folder " + self.foldername)
 
@@ -159,130 +165,252 @@ class CyberReader:
         for filename in filelist:
             pbfactory = cyberreader.ProtobufFactory()
             if self.AWS_deploy:
-                reader = cyberreader.RecordReader(filename, AWS=True)
+                s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
+                with s3.open('ohio-lambda-rgeng/'+filename, 'rb') as f:
+                    reader = cyberreader.RecordReader(f, AWS=True)
+                    for channel in reader.GetChannelList():
+                        desc = reader.GetProtoDesc(channel)
+                        pbfactory.RegisterMessage(desc)
+                        unique_channels.append(channel)
+
+                    deny_channels=None
+                    allow_channels=None
+                    if(channelList != None):
+                        if(channelList['deny'] != None):
+                            deny_channels=channelList['deny']
+                        if(channelList['allow'] != None):
+                            allow_channels=channelList['allow']
+                    if(allow_channels == None):
+                        allow_channels = set(unique_channels)
+                    print(unique_channels)
+                    print(allow_channels)
+                    #run check that gives priority to deny
+                    for deny in deny_channels:
+                        if(deny in allow_channels):
+                            allow_channels.remove(deny)
+                    #have to wait until startime is found for each file
+                    logging.info(f"Checking cyber metadata for file {filename}")
+
+                    specificmeta = {
+                        'filename': filename,
+                        'foldername': self.foldername,
+                        'startTime': datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
+                        'endTime': datetime.utcfromtimestamp(reader.header.end_time/1000000000),
+                        'msgnum': reader.header.message_number,
+                        'size': reader.header.size,
+                        'topics': unique_channels,
+                        #'deny': deny_channels, #having the full list and deny/accept was too much for mongo
+                        #'allow': allow_channels,
+                        'type': 'cyber'
+                    }
+                    print(specificmeta)
+                    specificmeta.update(metadatasource)
+                    metadata_search = dbobject.db_find_metadata_by_startTime('metadata', specificmeta['startTime'])
+                    # if(metadata_search == None):
+                    #     result = dbobject.db_insert("metadata", specificmeta)
+                    #     if(result == -1):
+                    #         logging.error(f"metadata insert from cyber failed {filename}")
+                    #         return -1
+                    #     #check the insert was good
+                    #     metadata_search = dbobject.db_find_metadata_by_id('metadata', result.inserted_id)
+                    #     if(metadata_search == None):
+                    #         logging.error(f"metadata check from cyber failed {filename}")
+                    #         return -1
+                    # elif not forceInsert:
+                    #     logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
+                    #     continue
+
+                    #start the message extract process
+
+                    message = cyberreader.RecordMessage()
+                    num_msg = reader.header.message_number
+                    logging.info("Inserting data # -> " + str(num_msg))
+                    prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
+                    prog.update()
+                    msgcount = 0
+                    numinsert = 0
+                    while reader.ReadMessage(message):
+                        self.totalmessagecount = self.totalmessagecount + 1
+                        msgcount = msgcount + 1
+
+                        prog.set_stat(msgcount)
+                        prog.update()
+
+                        message_type = reader.GetMessageType(message.channel_name)
+                        msg = pbfactory.GenerateMessageByType(message_type)
+                        msg.ParseFromString(message.content)
+                        if(message.channel_name not in deny_channels and
+                        message.channel_name in allow_channels):
+                            try:
+                                jdata = json.loads(MessageToJson(msg))
+                            except:
+                                logging.exception("json conversion failed")
+                                sys.exit(-1)
+
+                            try:
+                                ntime = datetime.utcfromtimestamp(message.time/1000000000)#t.secs + (t.nsecs / 10e6)).timestamp()
+                            except:
+                                logging.exception("cyber time to timestamp failed")
+                                sys.exit(-1)
+
+                            newmeta_id = metadata_search
+                            newitem = {
+                                "topic": message.channel_name,
+                                "timeField": ntime, #remove isoformat todo .isoformat()
+                                "size": len(message.content),
+                                "msg_type": "",     #msg._type,
+                                "metadataID": newmeta_id} #todo remove str force
+                            try:
+                                jdata = json.loads(MessageToJson(msg))
+                            except Exception as e:
+                                logging.exception("cyber message to json failed")
+                                return -1
+
+                            newitem.update(jdata)
+                            # if(newitem['topic'] == 'apollo/sensor/gnss/best_pose' or
+                            #     newitem['topic'] == '/apollo/prediction' or
+                            #     newitem['topic'] == "/apollo/prediction/perception_obstacles"):
+                            # js = json.dumps(newitem)
+                            # print("\n"+newitem['topic'])
+                            # print(f"\nRaw: {newitem['size']}")
+
+                            # print(f"\nJSON Size:{len(js)}")
+                            if(newitem['size'] < 200000):
+                                dbobject.db_insert_main(newitem)
+                            else:
+                                logging.warning(f"Skipping message {newitem['topic']} because of size")
+                            numinsert = numinsert + 1
+                            #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
+                            #
+                            #print(jdata)
+                        #else:
+                        #    print("Ignore " + message.channel_name)
+                    prog.end()
+                    print(f"Insert Count:{numinsert}")
+                    print(f"Message Count {msgcount}")
             else:
                 reader = cyberreader.RecordReader(filename)
 
-            for channel in reader.GetChannelList():
-                desc = reader.GetProtoDesc(channel)
-                pbfactory.RegisterMessage(desc)
-                unique_channels.append(channel)
+                for channel in reader.GetChannelList():
+                    desc = reader.GetProtoDesc(channel)
+                    pbfactory.RegisterMessage(desc)
+                    unique_channels.append(channel)
 
-            deny_channels=None
-            allow_channels=None
-            if(channelList != None):
-                if(channelList['deny'] != None):
-                    deny_channels=channelList['deny']
-                if(channelList['allow'] != None):
-                    allow_channels=channelList['allow']
-            if(allow_channels == None):
-                allow_channels = set(unique_channels)
-            print(unique_channels)
-            print(allow_channels)
-            #run check that gives priority to deny
-            for deny in deny_channels:
-                if(deny in allow_channels):
-                    allow_channels.remove(deny)
-            #have to wait until startime is found for each file
-            logging.info(f"Checking cyber metadata for file {filename}")
+                deny_channels=None
+                allow_channels=None
+                if(channelList != None):
+                    if(channelList['deny'] != None):
+                        deny_channels=channelList['deny']
+                    if(channelList['allow'] != None):
+                        allow_channels=channelList['allow']
+                if(allow_channels == None):
+                    allow_channels = set(unique_channels)
+                print(unique_channels)
+                print(allow_channels)
+                #run check that gives priority to deny
+                for deny in deny_channels:
+                    if(deny in allow_channels):
+                        allow_channels.remove(deny)
+                #have to wait until startime is found for each file
+                logging.info(f"Checking cyber metadata for file {filename}")
 
-            specificmeta = {
-                'filename': filename,
-                'foldername': self.foldername,
-                'startTime': datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
-                'endTime': datetime.utcfromtimestamp(reader.header.end_time/1000000000),
-                'msgnum': reader.header.message_number,
-                'size': reader.header.size,
-                'topics': unique_channels,
-                #'deny': deny_channels, #having the full list and deny/accept was too much for mongo
-                #'allow': allow_channels,
-                'type': 'cyber'
-            }
-            specificmeta.update(metadatasource)
-            metadata_search = dbobject.db_find_metadata_by_startTime('metadata', specificmeta['startTime'])
-            # Removed for Debugging
-            # if(metadata_search == None):
-            #     result = dbobject.db_insert("metadata", specificmeta)
-            #     if(result == -1):
-            #         logging.error(f"metadata insert from cyber failed {filename}")
-            #         return -1
-            #     #check the insert was good
-            #     metadata_search = dbobject.db_find_metadata_by_id('metadata', result.inserted_id)
-            #     if(metadata_search == None):
-            #         logging.error(f"metadata check from cyber failed {filename}")
-            #         return -1
-            # elif not forceInsert:
-            #     logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
-            #     continue
+                specificmeta = {
+                    'filename': filename,
+                    'foldername': self.foldername,
+                    'startTime': datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
+                    'endTime': datetime.utcfromtimestamp(reader.header.end_time/1000000000),
+                    'msgnum': reader.header.message_number,
+                    'size': reader.header.size,
+                    'topics': unique_channels,
+                    #'deny': deny_channels, #having the full list and deny/accept was too much for mongo
+                    #'allow': allow_channels,
+                    'type': 'cyber'
+                }
+                print(specificmeta)
+                specificmeta.update(metadatasource)
+                metadata_search = dbobject.db_find_metadata_by_startTime('metadata', specificmeta['startTime'])
+                # if(metadata_search == None):
+                #     result = dbobject.db_insert("metadata", specificmeta)
+                #     if(result == -1):
+                #         logging.error(f"metadata insert from cyber failed {filename}")
+                #         return -1
+                #     #check the insert was good
+                #     metadata_search = dbobject.db_find_metadata_by_id('metadata', result.inserted_id)
+                #     if(metadata_search == None):
+                #         logging.error(f"metadata check from cyber failed {filename}")
+                #         return -1
+                # elif not forceInsert:
+                #     logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
+                #     continue
 
-            #start the message extract process
+                #start the message extract process
 
-            message = cyberreader.RecordMessage()
-            num_msg = reader.header.message_number
-            logging.info("Inserting data # -> " + str(num_msg))
-            prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
-            prog.update()
-            msgcount = 0
-            numinsert = 0
-            while reader.ReadMessage(message):
-                self.totalmessagecount = self.totalmessagecount + 1
-                msgcount = msgcount + 1
-
-                prog.set_stat(msgcount)
+                message = cyberreader.RecordMessage()
+                num_msg = reader.header.message_number
+                logging.info("Inserting data # -> " + str(num_msg))
+                prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
                 prog.update()
+                msgcount = 0
+                numinsert = 0
+                while reader.ReadMessage(message):
+                    self.totalmessagecount = self.totalmessagecount + 1
+                    msgcount = msgcount + 1
 
-                message_type = reader.GetMessageType(message.channel_name)
-                msg = pbfactory.GenerateMessageByType(message_type)
-                msg.ParseFromString(message.content)
-                if(message.channel_name not in deny_channels and
-                   message.channel_name in allow_channels):
-                    try:
-                        jdata = json.loads(MessageToJson(msg))
-                    except:
-                        logging.exception("json conversion failed")
-                        sys.exit(-1)
+                    prog.set_stat(msgcount)
+                    prog.update()
 
-                    try:
-                        ntime = datetime.utcfromtimestamp(message.time/1000000000)#t.secs + (t.nsecs / 10e6)).timestamp()
-                    except:
-                        logging.exception("cyber time to timestamp failed")
-                        sys.exit(-1)
+                    message_type = reader.GetMessageType(message.channel_name)
+                    msg = pbfactory.GenerateMessageByType(message_type)
+                    msg.ParseFromString(message.content)
+                    if(message.channel_name not in deny_channels and
+                    message.channel_name in allow_channels):
+                        try:
+                            jdata = json.loads(MessageToJson(msg))
+                        except:
+                            logging.exception("json conversion failed")
+                            sys.exit(-1)
 
-                    newmeta_id = metadata_search
-                    newitem = {
-                        "topic": message.channel_name,
-                        "timeField": ntime, #remove isoformat todo .isoformat()
-                        "size": len(message.content),
-                        "msg_type": "",     #msg._type,
-                        "metadataID": newmeta_id} #todo remove str force
-                    try:
-                        jdata = json.loads(MessageToJson(msg))
-                    except Exception as e:
-                        logging.exception("cyber message to json failed")
-                        return -1
+                        try:
+                            ntime = datetime.utcfromtimestamp(message.time/1000000000)#t.secs + (t.nsecs / 10e6)).timestamp()
+                        except:
+                            logging.exception("cyber time to timestamp failed")
+                            sys.exit(-1)
 
-                    newitem.update(jdata)
-                    # if(newitem['topic'] == 'apollo/sensor/gnss/best_pose' or
-                    #     newitem['topic'] == '/apollo/prediction' or
-                    #     newitem['topic'] == "/apollo/prediction/perception_obstacles"):
-                    # js = json.dumps(newitem)
-                    # print("\n"+newitem['topic'])
-                    # print(f"\nRaw: {newitem['size']}")
+                        newmeta_id = metadata_search
+                        newitem = {
+                            "topic": message.channel_name,
+                            "timeField": ntime, #remove isoformat todo .isoformat()
+                            "size": len(message.content),
+                            "msg_type": "",     #msg._type,
+                            "metadataID": newmeta_id} #todo remove str force
+                        try:
+                            jdata = json.loads(MessageToJson(msg))
+                        except Exception as e:
+                            logging.exception("cyber message to json failed")
+                            return -1
 
-                    # print(f"\nJSON Size:{len(js)}")
-                    if(newitem['size'] < 200000):
-                        dbobject.db_insert_main(newitem)
-                    else:
-                        logging.warning(f"Skipping message {newitem['topic']} because of size")
-                    numinsert = numinsert + 1
-                    #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
-                    #
-                    #print(jdata)
-                #else:
-                #    print("Ignore " + message.channel_name)
-            prog.end()
-            print(f"Insert Count:{numinsert}")
-            print(f"Message Count {msgcount}")
+                        newitem.update(jdata)
+                        # if(newitem['topic'] == 'apollo/sensor/gnss/best_pose' or
+                        #     newitem['topic'] == '/apollo/prediction' or
+                        #     newitem['topic'] == "/apollo/prediction/perception_obstacles"):
+                        # js = json.dumps(newitem)
+                        # print("\n"+newitem['topic'])
+                        # print(f"\nRaw: {newitem['size']}")
+
+                        # print(f"\nJSON Size:{len(js)}")
+                        if(newitem['size'] < 200000):
+                            dbobject.db_insert_main(newitem)
+                        else:
+                            logging.warning(f"Skipping message {newitem['topic']} because of size")
+                        numinsert = numinsert + 1
+                        #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
+                        #
+                        #print(jdata)
+                    #else:
+                    #    print("Ignore " + message.channel_name)
+                prog.end()
+                print(f"Insert Count:{numinsert}")
+                print(f"Message Count {msgcount}")
 
 if __name__ == "__main__":
 
