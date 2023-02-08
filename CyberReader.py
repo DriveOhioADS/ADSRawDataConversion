@@ -42,7 +42,8 @@ class CyberReader:
                     for key in page[ "Contents" ]:
                         keyString = key[ "Key" ]
                         if keyString[:len(target)] == target:
-                            filelist.append(keyString)
+                            if not keyString[len(keyString)-4:].isalpha():
+                                filelist.append(keyString)
             print("\n\n\n\n\n\n\n\n")
             print("File List:", filelist)
             print("\n\n\n\n\n\n\n\n")
