@@ -122,10 +122,21 @@ class DatabaseMongo(DatabaseInterface):
         client = boto3.client('s3',aws_access_key_id=cred['ACCESS_ID'],
                                     aws_secret_access_key=cred['ACCESS_KEY'],
                                     region_name="us-east-2")
+        # command = "mongoexport --db "+config['database']['databasename']+" --collection "+config['database']['collection']+" --out="+target+".json"
+        # os.system(command)
+        # folder = config['file']['folder'][1:]
+        
         command = "mongoexport --db "+config['database']['databasename']+" --collection "+config['database']['collection']+" --out="+target+".json"
         os.system(command)
+
+        command = "cp cyberbags.json results/cyberbags.json"
+        os.system(command)
+
+        command = "zip -r results.zip results"
+        os.system(command)
+        
         folder = config['file']['folder'][1:]
-        client.upload_file(target+'.json','ohio-lambda-rgeng', folder+target+'.json')
+        client.upload_file('results.zip','ohio-lambda-rgeng', folder+'results.zip')
     
     # def insert_metadata(self, metadata):
     #     result = self.mydb[self.dname]["metadata"].insert_one(metadata)
