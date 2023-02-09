@@ -126,10 +126,12 @@ class DatabaseMongo(DatabaseInterface):
         # os.system(command)
         # folder = config['file']['folder'][1:]
         
+        os.system('mkdir results')
+        
         command = "mongoexport --db "+config['database']['databasename']+" --collection "+config['database']['collection']+" --out="+target+".json"
         os.system(command)
 
-        command = "cp cyberbags.json results/cyberbags.json"
+        command = "cp cyberbags.json results/"+target+".json"
         os.system(command)
 
         command = "zip -r results.zip results"
