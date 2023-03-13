@@ -12,8 +12,7 @@ import s3fs
 import boto3
 
 class CyberReader:
-    def __init__(self, foldername=None, basefilename=None):
-        print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n Created CyberReader Instance \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+    def __init__(self, foldername=None, basefilename=None, s3bucket=None):
         self.foldername = foldername
         self.basefilename = basefilename
         self.message = cyberreader.RecordMessage()
@@ -26,6 +25,7 @@ class CyberReader:
         with open('cred.json','rb') as f:
             self.cred = json.load(f)
         self.AWS_deploy = True
+        self.bucket = s3bucket
 
     def ScanChannelFolder(self):
         all_channels = []
@@ -34,7 +34,7 @@ class CyberReader:
                                     aws_secret_access_key=self.cred['ACCESS_KEY'],
                                     region_name="us-east-2")
             paginator = client.get_paginator('list_objects_v2')
-            result = paginator.paginate(Bucket='ohio-lambda-rgeng',StartAfter='2018')
+            result = paginator.paginate(Bucket=self.bucket,StartAfter='2018')
             filelist = []
             target = self.foldername[1:]
             for page in result:
@@ -44,24 +44,17 @@ class CyberReader:
                         if keyString[:len(target)] == target:
                             if not keyString[len(keyString)-4:].isalpha():
                                 filelist.append(keyString)
-            print("\n\n\n\n\n\n\n\n")
-            print("File List:", filelist)
-            print("\n\n\n\n\n\n\n\n")
+
             self.bags = [file for file in filelist if file!= target]
             for file in self.bags:
                 new_channels = []
-                print("\n\n\n\n\n\n\n\n")
                 new_channels = self.ScanChannelsSingleFile(file)
-                print(new_channels,"\n\n\n\n\n\n\n\n")
-                #print(len(new_channels))
                 all_channels = list(set(all_channels + new_channels))
-            # print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n", all_channels,"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
         else:
             filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
             for file in filelist:
                 new_channels = []
                 new_channels = self.ScanChannelsSingleFile(file)
-                #print(len(new_channels))
                 all_channels = list(set(all_channels + new_channels))
         self.unique_channels = all_channels
         return all_channels
@@ -74,7 +67,6 @@ class CyberReader:
             desc = reader.GetProtoDesc(channel)
             self.pbfactory.RegisterMessage(desc)
             unqiue_channel.append(channel)
-            #print(channel)
         self.unique_channels = unqiue_channel
         self.reader = None
         return unqiue_channel
@@ -167,7 +159,7 @@ class CyberReader:
             pbfactory = cyberreader.ProtobufFactory()
             if self.AWS_deploy:
                 s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
-                with s3.open('ohio-lambda-rgeng/'+filename, 'rb') as f:
+                with s3.open(self.bucket+'/'+filename, 'rb') as f:
                     reader = cyberreader.RecordReader(f, AWS=True)
                     for channel in reader.GetChannelList():
                         desc = reader.GetProtoDesc(channel)
@@ -306,8 +298,6 @@ class CyberReader:
                         allow_channels=channelList['allow']
                 if(allow_channels == None):
                     allow_channels = set(unique_channels)
-                print(unique_channels)
-                print(allow_channels)
                 #run check that gives priority to deny
                 for deny in deny_channels:
                     if(deny in allow_channels):
@@ -327,7 +317,6 @@ class CyberReader:
                     #'allow': allow_channels,
                     'type': 'cyber'
                 }
-                print(specificmeta)
                 specificmeta.update(metadatasource)
                 metadata_search = dbobject.db_find_metadata_by_startTime('metadata', specificmeta['startTime'])
                 # if(metadata_search == None):

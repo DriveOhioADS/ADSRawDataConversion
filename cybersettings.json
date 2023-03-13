@@ -30,5 +30,6 @@
             "/apollo/perception",
             "/apollo/perception/obstacles"
         ]
-    }
+    },
+    "Bucket":"ohio-lambda-rgeng"
  }

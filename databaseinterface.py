@@ -34,6 +34,9 @@ class DatabaseInterface:
     def setCollectionName(self, cname):
         self.cname = cname
 
+    def set_bucket(self, s3bucket):
+        self.bucket = s3bucket
+
     def CreateDatabaseInterface(type, uri, dbname):
         if(type == 'mongo'):
             obj = DatabaseMongo(uri, dbname)
@@ -138,7 +141,7 @@ class DatabaseMongo(DatabaseInterface):
         os.system(command)
         
         folder = config['file']['folder'][1:]
-        client.upload_file('results.zip','ohio-lambda-rgeng', folder+'results.zip')
+        client.upload_file('results.zip',self.bucket, folder+'results.zip')
     
     # def insert_metadata(self, metadata):
     #     result = self.mydb[self.dname]["metadata"].insert_one(metadata)

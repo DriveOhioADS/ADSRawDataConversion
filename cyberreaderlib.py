@@ -162,7 +162,7 @@ class RecordBase:
         raise NotImplementedError()
 
 class RecordReader(RecordBase):
-    def __init__(self, file, AWS) -> None:
+    def __init__(self, file, AWS, s3bucket) -> None:
         self.is_valid = False
         self.reach_end = False
         self.chunk = None
@@ -170,6 +170,7 @@ class RecordReader(RecordBase):
         self.message_index = 0
         self.channel_info = { }
         self.file_reader = RecordFileReader()
+        self.bucket = s3bucket
         with open('cred.json','rb') as f:
             self.cred = json.load(f)
 
@@ -179,7 +180,7 @@ class RecordReader(RecordBase):
         else:
             if isinstance(file, str):
                 s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
-                with s3.open('ohio-lambda-rgeng/'+file, 'rb') as f:
+                with s3.open(self.bucket+'/'+file, 'rb') as f:
                     if not self.file_reader.Open(f):
                         return
             else:

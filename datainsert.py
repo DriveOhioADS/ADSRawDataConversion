@@ -25,7 +25,7 @@ def ProcessRosbagFile(file, dbobject, channelList, metadata, force):
     with open('cred.json','rb') as f:
         cred = json.load(f)
     s3 = s3fs.core.S3FileSystem(key=cred['ACCESS_ID'], secret=cred['ACCESS_KEY'])
-    with s3.open('ohio-lambda-rgeng/'+file, 'rb') as f:
+    with s3.open(dbobject.bucket+'/'+file, 'rb') as f:
         return rr.ProcessFile(file=file, dbobject=dbobject, metadatasource=metadata,
                             channelList=channelList,
                             force=force, process_lidar=False)
@@ -33,7 +33,7 @@ def ProcessRosbagFile(file, dbobject, channelList, metadata, force):
 
 def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata, force):
     from CyberReader import CyberReader
-    cr = CyberReader(cyberfolder, cyberfilebase)
+    cr = CyberReader(cyberfolder, cyberfilebase, s3bucket=dbobject.bucket)
     #check that deny/allow are present and set defaults
     if(channelList != None):
         if('deny' in channelList and channelList['deny'] != None):
@@ -96,7 +96,8 @@ def main(args):
     dbobject = DatabaseInterface.CreateDatabaseInterface(config['database']['type'],
                                                          config['database']['uri'],
                                                          config['database']['databasename'])
-
+    
+    dbobject.set_bucket(config['Bucket'])
     dbobject.setCollectionName(config['database']['collection'])
     dbobject.db_connect()
 
