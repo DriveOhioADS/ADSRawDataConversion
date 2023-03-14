@@ -48,7 +48,7 @@ class CyberReader:
             # Only attempt to process the desired files
             for file in filelist:
                 if file[:len(target+self.basefilename)] == target+self.basefilename:
-                    if file!= target or file[-4:] != ".zip":
+                    if file!= target and file[-4:] != ".zip":
                         self.bags.append(file)
                         
             for file in self.bags:
