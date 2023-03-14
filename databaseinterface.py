@@ -131,17 +131,17 @@ class DatabaseMongo(DatabaseInterface):
         
         os.system('mkdir results')
         
-        command = "mongoexport --db "+config['database']['databasename']+" --collection "+config['database']['collection']+" --out="+target+".json"
+        command = "mongoexport --db "+config['database']['databasename']+" --collection "+config['database']['collection']+" --out="+config["file"]["filebase"]+".json"
         os.system(command)
 
-        command = "cp cyberbags.json results/"+target+".json"
+        command = "cp "+config["file"]["filebase"]+".json results/"+config["file"]["filebase"]+".json"
         os.system(command)
 
-        command = "zip -r "+config["filebase"]+".zip results"
+        command = "zip -r "+config["file"]["filebase"]+"zip results"
         os.system(command)
         
         folder = config['file']['folder'][1:]
-        client.upload_file(config["filebase"]+'.zip',self.bucket, folder+config["filebase"]+'.zip')
+        client.upload_file(config["file"]["filebase"]+'zip',self.bucket, folder+config["file"]["filebase"]+'zip')
     
     # def insert_metadata(self, metadata):
     #     result = self.mydb[self.dname]["metadata"].insert_one(metadata)

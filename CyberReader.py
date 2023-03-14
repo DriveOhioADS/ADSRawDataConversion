@@ -44,8 +44,13 @@ class CyberReader:
                         if keyString[:len(target)] == target:
                             if not keyString[len(keyString)-4:].isalpha():
                                 filelist.append(keyString)
-
-            self.bags = [file for file in filelist if file[:len(self.basefilename)] == self.basefilename and file!= target or file[-4:] != ".zip"]
+            self.bags = []
+            # Only attempt to process the desired files
+            for file in filelist:
+                if file[:len(target+self.basefilename)] == target+self.basefilename:
+                    if file!= target or file[-4:] != ".zip":
+                        self.bags.append(file)
+                        
             for file in self.bags:
                 new_channels = []
                 new_channels = self.ScanChannelsSingleFile(file)
