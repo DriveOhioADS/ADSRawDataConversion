@@ -96,8 +96,9 @@ def main(args):
     dbobject = DatabaseInterface.CreateDatabaseInterface(config['database']['type'],
                                                          config['database']['uri'],
                                                          config['database']['databasename'])
-    
+    print(config["Bucket"])
     dbobject.set_bucket(config['Bucket'])
+    print(config["Bucket"])
     dbobject.setCollectionName(config['database']['collection'])
     dbobject.db_connect()
 

@@ -62,7 +62,7 @@ class CyberReader:
     def ScanChannelsSingleFile(self, filename):
         unqiue_channel = []
         self.pbfactory = cyberreader.ProtobufFactory()
-        reader = cyberreader.RecordReader(filename, AWS=True)
+        reader = cyberreader.RecordReader(filename, AWS=True, s3bucket = self.bucket)
         for channel in reader.GetChannelList():
             desc = reader.GetProtoDesc(channel)
             self.pbfactory.RegisterMessage(desc)
@@ -160,7 +160,7 @@ class CyberReader:
             if self.AWS_deploy:
                 s3 = s3fs.core.S3FileSystem(key=self.cred['ACCESS_ID'], secret=self.cred['ACCESS_KEY'])
                 with s3.open(self.bucket+'/'+filename, 'rb') as f:
-                    reader = cyberreader.RecordReader(f, AWS=True)
+                    reader = cyberreader.RecordReader(f, AWS=True, s3bucket = self.bucket)
                     for channel in reader.GetChannelList():
                         desc = reader.GetProtoDesc(channel)
                         pbfactory.RegisterMessage(desc)

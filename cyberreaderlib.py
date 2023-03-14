@@ -162,7 +162,7 @@ class RecordBase:
         raise NotImplementedError()
 
 class RecordReader(RecordBase):
-    def __init__(self, file, AWS, s3bucket) -> None:
+    def __init__(self, file, AWS=False, s3bucket=None) -> None:
         self.is_valid = False
         self.reach_end = False
         self.chunk = None
@@ -186,7 +186,7 @@ class RecordReader(RecordBase):
             else:
                 if not self.file_reader.Open(file):
                     return
-            
+        self.file_reader.ReadHeader()
         self.chunk = record_pb2.ChunkBody()
         self.is_valid = True
         self.header = self.file_reader.header
