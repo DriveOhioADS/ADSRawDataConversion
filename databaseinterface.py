@@ -137,11 +137,11 @@ class DatabaseMongo(DatabaseInterface):
         command = "cp cyberbags.json results/"+target+".json"
         os.system(command)
 
-        command = "zip -r results.zip results"
+        command = "zip -r "+config["filebase"]+".zip results"
         os.system(command)
         
         folder = config['file']['folder'][1:]
-        client.upload_file('results.zip',self.bucket, folder+'results.zip')
+        client.upload_file(config["filebase"]+'.zip',self.bucket, folder+config["filebase"]+'.zip')
     
     # def insert_metadata(self, metadata):
     #     result = self.mydb[self.dname]["metadata"].insert_one(metadata)
