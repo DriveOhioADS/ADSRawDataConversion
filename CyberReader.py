@@ -24,6 +24,10 @@ class CyberReader:
         self.totalmessagecount = 0
         with open('cred.json','rb') as f:
             self.cred = json.load(f)
+        
+        with open("cybersettings.json",'rb') as f:
+            config = json.load(f)
+        self.region = config["region"]
         self.AWS_deploy = True
         self.bucket = s3bucket
 
@@ -32,7 +36,7 @@ class CyberReader:
         if self.AWS_deploy:
             client = boto3.client('s3',aws_access_key_id=self.cred['ACCESS_ID'],
                                     aws_secret_access_key=self.cred['ACCESS_KEY'],
-                                    region_name="us-east-2")
+                                    region_name=self.region)
             paginator = client.get_paginator('list_objects_v2')
             result = paginator.paginate(Bucket=self.bucket,StartAfter='2018')
             filelist = []

@@ -122,9 +122,12 @@ class DatabaseMongo(DatabaseInterface):
             cred = json.load(f)
         target = config['file']['folder'][1:]
         target = target[:-1]
+        with open("cybersettings.json",'rb') as f:
+            config = json.load(f)
+        region = config["region"]
         client = boto3.client('s3',aws_access_key_id=cred['ACCESS_ID'],
                                     aws_secret_access_key=cred['ACCESS_KEY'],
-                                    region_name="us-east-2")
+                                    region_name=region)
         # command = "mongoexport --db "+config['database']['databasename']+" --collection "+config['database']['collection']+" --out="+target+".json"
         # os.system(command)
         # folder = config['file']['folder'][1:]
@@ -167,7 +170,7 @@ class DatabaseDynamo(DatabaseInterface):
         #                     aws_access_key_id="anything",
         #                     aws_secret_access_key="anything",
         #                     region_name="us-west-2")
-
+        
         ddb = boto3.resource('dynamodb', endpoint_url=self.uristring,
                              aws_access_key_id="anything",
                              aws_secret_access_key="anything",
