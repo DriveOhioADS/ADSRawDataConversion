@@ -3,5 +3,8 @@ sudo apt install -y
 sudo pip3 install boto3 pyprog pymongo rospy_message_converter
 
 #sudo pip3 install sensor-msgs
+sudo apt install -y python3-sensor-msgs
+sudo apt install -y python3-protobuf
+sudo apt install -y protobuf-compiler
 
 make
