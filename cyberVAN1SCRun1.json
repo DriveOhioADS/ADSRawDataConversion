@@ -1,0 +1,34 @@
+{
+    "metadata":{
+        "vehicleID": 2,
+        "experimentID": 1,
+        "other": "SmartCenter Testing"
+    },
+    "file":
+    {
+        "type": "cyber",
+        "folder": "/home/ubuntu/s3/TRC/VAN1/SmartCenter/202305041943/",
+        "filebase": "Van1_complex_nocam_run1.record"
+    },
+    "database":
+    {
+        "type": "dynamo",
+        "uri": "mongodb://127.0.0.1:27017",
+        "collection": "cyber",
+        "databasename": "cyber"
+    },
+    "channelList":{
+        "deny": [
+            "/apollo/sensor/camera/front_6mm/image",
+            "/apollo/sensor/camera/front_6mm/image/compressed",
+            "/apollo/sensor/camera/front_25mm/image",
+            "/apollo/sensor/camera/front_25mm/image/compressed",
+            "/apollo/sensor/velodyne32/PointCloud2",
+            "/apollo/sensor/velodyne32/VelodyneScan",
+            "/apollo/planning",
+            "/apollo/prediction",
+            "/apollo/perception",
+            "/apollo/perception/obstacles"
+        ]
+    }
+ }

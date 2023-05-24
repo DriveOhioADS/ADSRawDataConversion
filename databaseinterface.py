@@ -17,6 +17,11 @@ import logging
 import time
 import datetime
 
+#boto3.set_stream_logger('boto', 'logs/boto.log')
+logging.getLogger('boto3').setLevel(logging.CRITICAL)
+logging.getLogger('botocore').setLevel(logging.CRITICAL)
+logging.getLogger('nose').setLevel(logging.CRITICAL)
+
 class DatabaseInterface:
     def __init__(self, uristring):
         self.uristring = uristring
@@ -140,10 +145,12 @@ class DatabaseDynamo(DatabaseInterface):
         #                     aws_secret_access_key="anything",
         #                     region_name="us-west-2")
         
-        ddb = boto3.resource('dynamodb', endpoint_url=self.uristring,
-                             aws_access_key_id="anything",
-                             aws_secret_access_key="anything",
-                             region_name="us-west-2", )
+        akey = ''
+        skey = ''
+        ddb = boto3.resource('dynamodb', #endpoint_url=self.uristring,
+                             aws_access_key_id=akey,
+                             aws_secret_access_key=skey,
+                             region_name="us-east-2", )
         tables = list(ddb.tables.all())
         print(tables)
         self.ddb = ddb
