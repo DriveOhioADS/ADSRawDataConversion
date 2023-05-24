@@ -165,12 +165,12 @@ class CyberReader:
             specificmeta.update(metadatasource)
             metadata_search = dbobject.db_find_metadata_by_startTime('metadata', specificmeta['startTime'])
             if(metadata_search == None):
-                result = dbobject.db_insert("metadata", specificmeta)
-                if(result == -1):
+                insert_result = dbobject.db_insert("metadata", specificmeta)
+                if(insert_result == -1):
                     logging.error(f"metadata insert from cyber failed {filename}")
                     return -1
                 #check the insert was good
-                metadata_search = dbobject.db_find_metadata_by_id('metadata', result.inserted_id)
+                metadata_search = dbobject.db_find_metadata_by_id('metadata', insert_result)
                 if(metadata_search == None):
                     logging.error(f"metadata check from cyber failed {filename}")
                     return -1
@@ -206,7 +206,7 @@ class CyberReader:
                         sys.exit(-1)
                     
                     try:
-                        ntime = datetime.utcfromtimestamp(message.time/1000000000)#t.secs + (t.nsecs / 10e6)).timestamp()
+                        ntime = datetime.utcfromtimestamp(message.time/1000000000)
                     except:
                         logging.exception("cyber time to timestamp failed")
                         sys.exit(-1)

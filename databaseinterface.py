@@ -14,6 +14,8 @@ from botocore.exceptions import ClientError
 from decimal import Decimal
 #from google.protobuf.json_format import MessageToJson
 import logging
+import time
+import datetime
 
 class DatabaseInterface:
     def __init__(self, uristring):
@@ -55,23 +57,23 @@ class DatabaseMongo(DatabaseInterface):
         return self.db_insert(self.cname, newdata)
 
     def db_insert(self, collection_name, newdata):
-        try:
-            result = self.mydb[collection_name].insert_one(newdata)
-            return result
-        except pymongo.errors.OperationFailure:
-            print("\ndb_insert OperationFailure")
-            return -1
-        except pymongo.errors.DocumentTooLarge:
-            print("\ndb_insert DocumentTooLarge")
-            return -1
-        except Exception as ex:
-            logging.error("\ndb_insert Exception")      
-            logging.error(newdata)         
-            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-            message = template.format(type(ex).__name__, ex.args)
-            logging.error(message)
-            sys.exit(-1)
-            return -1
+        # try:
+        result = self.mydb[collection_name].insert_one(newdata)
+        return result.inserted_id
+        # except pymongo.errors.OperationFailure:
+        #     print("\ndb_insert OperationFailure")
+        #     return -1
+        # except pymongo.errors.DocumentTooLarge:
+        #     print("\ndb_insert DocumentTooLarge")
+        #     return -1
+        # except Exception as ex:
+        #     logging.error("\ndb_insert Exception")      
+        #     logging.error(newdata)         
+        #     template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+        #     message = template.format(type(ex).__name__, ex.args)
+        #     logging.error(message)
+        #     sys.exit(-1)
+        #     return -1
 
     def db_connect(self):
         mclient = pymongo.MongoClient(self.uristring)  # "mongodb://localhost:27017/")
@@ -164,9 +166,6 @@ class DatabaseDynamo(DatabaseInterface):
         return self.__db_find_metadata(cname, filter_to_find)
     
     def __db_find_metadata(self, cname, filter_to_find):
-        sdata = json.loads(json.dumps(sdata), parse_float=Decimal)
-        #item_to_find = sdata['startTime']
-        
         ttable = self.ddb.Table(cname)
         try:
             result = ttable.scan(FilterExpression=filter_to_find)
@@ -189,8 +188,12 @@ class DatabaseDynamo(DatabaseInterface):
     def db_insert(self, collection_name, newdata):
         ttable = self.ddb.Table(collection_name)
         # dynamo does not support float only decimal, watch out for datetime
-
-        newdata = json.loads(json.dumps(newdata), parse_float=Decimal)
+        if(collection_name == 'metadata'):
+            newdata['timeField'] = time.mktime(newdata['startTime'].timetuple())
+        else:
+            newdata['timeField'] = time.mktime(newdata['timeField'].timetuple())
+            
+        newdata = json.loads(json.dumps(newdata, indent=4, sort_keys=True, default=str), parse_float=Decimal)
 
         # new data is already in json, but needs dynamo format
         # also we need to generate a unique ID
@@ -200,6 +203,7 @@ class DatabaseDynamo(DatabaseInterface):
         checkdata.update(newdata)
         try:
             ttable.put_item(Item=checkdata)
+            return checkdata['_id']
         except ClientError as ce:
             print(f"\nclient error on insert {ce}")
             sys.exit()
@@ -214,8 +218,8 @@ class DatabaseDynamo(DatabaseInterface):
         print(f"Looking for table {tname}")
 
         timeField = 'timeField'
-        if (tname == 'metadata'):
-            timeField = 'startTime'
+        # if (tname == 'metadata'):
+        #     timeField = 'startTime'
 
         #is_table_existing = False
         createTable = False

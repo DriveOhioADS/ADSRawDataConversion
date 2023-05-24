@@ -12,8 +12,8 @@
     },
     "database":
     {
-        "type": "mongo",
-        "uri": "mongodb://127.0.0.1:27017",
+        "type": "dynamo",
+        "uri": "http://127.0.0.1:8000",
         "collection": "cyber",
         "databasename": "cyber"
     },
