@@ -13,9 +13,10 @@
     "database":
     {
         "type": "dynamo",
-        "uri": "mongodb://127.0.0.1:27017",
+        "uri": "https://dynamodb.us-east-2.amazonaws.com:443",
         "collection": "cyber",
-        "databasename": "cyber"
+        "databasename": "cyber",
+        "batch": true
     },
     "channelList":{
         "deny": [

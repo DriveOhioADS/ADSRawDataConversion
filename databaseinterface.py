@@ -17,7 +17,7 @@ from decimal import Decimal
 import logging
 import time
 import datetime
-from dynamodb_json import json_util as djson
+#from dynamodb_json import json_util as djson
 
 #boto3.set_stream_logger('boto', 'logs/boto.log')
 logging.getLogger('boto3').setLevel(logging.CRITICAL)

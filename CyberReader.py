@@ -8,6 +8,7 @@ from google.protobuf.json_format import MessageToJson
 from databaseinterface import DatabaseDynamo, DatabaseMongo
 import pyprog
 import logging
+import time
 
 class CyberReader:
     def __init__(self, foldername=None, basefilename=None):
@@ -190,7 +191,8 @@ class CyberReader:
             #setup batch, if requested
             if(batch):
                 batchobject = dbobject.db_getBatchWriter()
-                
+                print('using batch mode')
+ 
             while reader.ReadMessage(message):
                 self.totalmessagecount = self.totalmessagecount + 1
                 msgcount = msgcount + 1
@@ -248,7 +250,7 @@ class CyberReader:
                         logging.warning(f"Skipping message {newitem['topic']} because of size")
                     numinsert = numinsert + 1
                     ######################################################
-
+                    time.sleep(0.1)
                     #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
                     #
                     #print(jdata)
