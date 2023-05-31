@@ -26,7 +26,7 @@ def ProcessRosbagFile(file, dbobject, channelList, metadata, force):
                           force=force, process_lidar=False)
 
 
-def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata, force):
+def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata, force, batch):
     from CyberReader import CyberReader
     cr = CyberReader(cyberfolder, cyberfilebase)
     #check that deny/allow are present and set defaults
@@ -43,7 +43,7 @@ def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata
                     'deny': deny,
                     'allow': allow
                     }  
-    cr.InsertDataFromFolder(dbobject, metadata, channelList)   
+    cr.InsertDataFromFolder(dbobject, metadata, channelList, force, batch)   
     return 0
 
 def checkKey(dict, key):
@@ -104,7 +104,7 @@ def main(args):
         ProcessCyberFile(cyberfolder=config['file']['folder'],cyberfilebase=config['file']['filebase'], 
                          dbobject=dbobject,
                          channelList=json_channels,
-                         metadata=config['metadata'], force=args.force)
+                         metadata=config['metadata'], force=args.force, batch = config['database']['batch'])
     elif(config['file']['type'] == 'rosbag'):
         logging.info("Loading rosbag")
         ProcessRosbagFile(file=config['file']['filename'],

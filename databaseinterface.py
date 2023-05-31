@@ -6,7 +6,8 @@ import json
 #import sensor_msgs.point_cloud2 as pc2
 #import numpy as np
 import pymongo
-
+from os import environ as env
+from dotenv import find_dotenv, load_dotenv
 import uuid
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
@@ -16,6 +17,7 @@ from decimal import Decimal
 import logging
 import time
 import datetime
+from dynamodb_json import json_util as djson
 
 #boto3.set_stream_logger('boto', 'logs/boto.log')
 logging.getLogger('boto3').setLevel(logging.CRITICAL)
@@ -136,8 +138,14 @@ class DatabaseDynamo(DatabaseInterface):
         super().__init__(uristring)
         print("DynamoDB init")
         self.ddb = None
-
+        self.djsonzie = 0
+        
     def db_connect(self):
+        
+        ENV_FILE = find_dotenv()
+        if ENV_FILE:
+            load_dotenv(ENV_FILE)
+            
         print(f"connecting to dynamodb {self.uristring}")
         # client = boto3.client('dynamodb')
         # ddb = boto3.client('dynamodb', endpoint_url='http://172.31.144.1:8000',
@@ -145,9 +153,10 @@ class DatabaseDynamo(DatabaseInterface):
         #                     aws_secret_access_key="anything",
         #                     region_name="us-west-2")
         
-        akey = ''
-        skey = ''
-        ddb = boto3.resource('dynamodb', #endpoint_url=self.uristring,
+        akey = env.get('access_key_id')
+        skey = env.get('secret_access_key')
+        
+        ddb = boto3.resource('dynamodb', endpoint_url=self.uristring,#dynamodb.us-east-2.amazonaws.com:443
                              aws_access_key_id=akey,
                              aws_secret_access_key=skey,
                              region_name="us-east-2", )
@@ -188,13 +197,22 @@ class DatabaseDynamo(DatabaseInterface):
         # if (result != None):
         #    return result["_id"]
 
+    def db_getBatchWriter(self):
+        self.bwriter = self.ddb.Table(self.cname).batch_writer()
+        return self.bwriter
     
+    def db_putItemBatch(self, newdata):
+        checkdata = self._prepDataForInsert(self.cname, newdata)
+        return self.bwriter.put_item(checkdata)
+    
+    
+    def db_insert(self, collection, newdata):
+        return self.db_single_insert(collection, newdata)
+
     def db_insert_main(self, newdata):
         return self.db_insert(self.cname, newdata)
-
-    def db_insert(self, collection_name, newdata):
-        ttable = self.ddb.Table(collection_name)
-        # dynamo does not support float only decimal, watch out for datetime
+    
+    def _prepDataForInsert(self, collection_name, newdata):
         if(collection_name == 'metadata'):
             newdata['timeField'] = time.mktime(newdata['startTime'].timetuple())
         else:
@@ -208,6 +226,12 @@ class DatabaseDynamo(DatabaseInterface):
         #print(newUUID)
         checkdata = {'_id': newUUID}
         checkdata.update(newdata)
+        return checkdata
+    
+    def db_single_insert(self, collection_name, newdata):
+        ttable = self.ddb.Table(collection_name)
+        # dynamo does not support float only decimal, watch out for datetime
+        checkdata = self._prepDataForInsert(collection_name, newdata)
         try:
             ttable.put_item(Item=checkdata)
             return checkdata['_id']

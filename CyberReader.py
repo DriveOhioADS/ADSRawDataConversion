@@ -114,7 +114,8 @@ class CyberReader:
         
     def InsertDataFromFolder(self, dbobject, metadatasource,
                              channelList=None,
-                             forceInsert=False):
+                             forceInsert=False,
+                             batch=False):
         
         logging.info("Scanning folder to get list of all channels:")
         all_channels = self.ScanChannelFolder()
@@ -179,7 +180,6 @@ class CyberReader:
                 continue
                            
             #start the message extract process
-
             message = cyberreader.RecordMessage()
             num_msg = reader.header.message_number
             logging.info("Inserting data # -> " + str(num_msg))
@@ -187,6 +187,10 @@ class CyberReader:
             prog.update()
             msgcount = 0
             numinsert = 0
+            #setup batch, if requested
+            if(batch):
+                batchobject = dbobject.db_getBatchWriter()
+                
             while reader.ReadMessage(message):
                 self.totalmessagecount = self.totalmessagecount + 1
                 msgcount = msgcount + 1
@@ -235,8 +239,11 @@ class CyberReader:
                     # print(f"\nJSON Size:{len(js)}")
                     
                     ######################################################
-                    if(newitem['size'] < 200000):
-                        dbobject.db_insert_main(newitem)
+                    if(newitem['size'] < 400000):
+                        if(batch):
+                            dbobject.db_putItemBatch(newitem)
+                        else:
+                            dbobject.db_insert_main(newitem)
                     else:
                         logging.warning(f"Skipping message {newitem['topic']} because of size")
                     numinsert = numinsert + 1

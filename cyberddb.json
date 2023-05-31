@@ -15,7 +15,8 @@
         "type": "dynamo",
         "uri": "http://127.0.0.1:8000",
         "collection": "cyber",
-        "databasename": "cyber"
+        "databasename": "cyber",
+        "batch": true
     },
     "channelList":{
         "deny": [
