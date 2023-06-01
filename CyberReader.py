@@ -250,7 +250,6 @@ class CyberReader:
                         logging.warning(f"Skipping message {newitem['topic']} because of size")
                     numinsert = numinsert + 1
                     ######################################################
-                    time.sleep(0.1)
                     #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
                     #
                     #print(jdata)
@@ -259,6 +258,7 @@ class CyberReader:
             prog.end()
             print(f"Insert Count:{numinsert}")
             print(f"Message Count {msgcount}")
+        dbobject.db_close()
                          
 if __name__ == "__main__":
     

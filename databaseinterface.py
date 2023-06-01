@@ -17,7 +17,8 @@ from decimal import Decimal
 import logging
 import time
 import datetime
-#from dynamodb_json import json_util as djson
+from tinydb import TinyDB, Query
+from dynamodb_json import json_util as djson
 
 #boto3.set_stream_logger('boto', 'logs/boto.log')
 logging.getLogger('boto3').setLevel(logging.CRITICAL)
@@ -47,6 +48,8 @@ class DatabaseInterface:
             obj = DatabaseMongo(uri, dbname)
         elif(type == 'dynamo'):
             obj = DatabaseDynamo(uri, dbname)
+        elif(type == 'djson'):
+            obj = DatabaseExport(uri, dbname)
         obj.type = type
         return obj
 
@@ -81,7 +84,9 @@ class DatabaseMongo(DatabaseInterface):
         #     logging.error(message)
         #     sys.exit(-1)
         #     return -1
-
+    def db_close(self):
+        return 0
+    
     def db_connect(self):
         mclient = pymongo.MongoClient(self.uristring)  # "mongodb://localhost:27017/")
         mydb = mclient[self.dname]
@@ -132,14 +137,80 @@ class DatabaseMongo(DatabaseInterface):
 def generate_unique_id():
     return uuid.uuid1()
 
-
+class DatabaseExport(DatabaseInterface):
+    def __init__(self, uri, collection):
+        self.basedjsonfile='tempdata'
+        self.djson_sizelimit = 10e6
+        self.dlistsize=0
+        #self.djson_file=None
+        self.dfilecount=0
+        self.ddatalist=[]
+        metadatafile='metadb'
+        self.tinydbmetaddata = TinyDB(metadatafile)
+        self.cname = collection
+        
+    def db_connect(self):
+        print('using djson export')
+        
+    def db_close(self):
+        print('closing')
+        self._writeoutfile()
+        
+    def _writeoutfile(self):
+        print('writing file...')
+        ddata = djson.dumps(self.ddatalist)
+        with open(self.basedjsonfile + str(self.dfilecount)+'.txt','+w') as writer:
+            writer.write(ddata)
+        self.dfilecount=self.dfilecount+1
+        self.dlistsize=0
+        self.ddatalist=[]
+        
+    def db_insert(self, collection, newdata):
+        newdata = DatabaseDynamo._prepDataForInsert(collection, newdata)
+        newdata = djson.loads(newdata)
+        if(collection == 'metadata'):
+            self.tinydbmetaddata.insert(newdata)
+            return newdata["_id"]
+        else:
+            self.ddatalist.append(newdata)
+            datalen = len(djson.dumps(newdata))
+            self.dlistsize = self.dlistsize + datalen
+            if(self.dlistsize > self.djson_sizelimit):
+                self._writeoutfile()
+            return newdata["_id"]
+           
+    def db_insert_main(self, newdata):
+        self.db_insert(self.cname, newdata)
+        
+    def db_find_metadata_by_startTime(self, cname, key):
+        q = Query()
+        key = json.loads(json.dumps(key, indent=4, sort_keys=True, default=str), parse_float=Decimal)
+        result = self.tinydbmetaddata.search(q.startTime == key)
+        if(len(result) <= 0):
+            result = None
+        else:
+            result = result[0]['_id']
+        return result
+    
+    def db_find_metadata_by_id(self, cname, key):
+        q = Query()
+        result = self.tinydbmetaddata.search(q._id == key)
+        if(len(result) <= 0):
+            result = None
+        else:
+            result = result[0]['_id']
+        return result
+        
+            
 class DatabaseDynamo(DatabaseInterface):
     def __init__(self, uristring, collection):
         super().__init__(uristring)
         print("DynamoDB init")
         self.ddb = None
-        self.djsonzie = 0
         
+    def db_close(self):
+        return 0
+    
     def db_connect(self):
         
         ENV_FILE = find_dotenv()
@@ -204,7 +275,7 @@ class DatabaseDynamo(DatabaseInterface):
         return self.bwriter
     
     def db_putItemBatch(self, newdata):
-        checkdata = self._prepDataForInsert(self.cname, newdata)
+        checkdata = DatabaseDynamo._prepDataForInsert(self.cname, newdata)
         return self.bwriter.put_item(checkdata)
     
     
@@ -214,7 +285,8 @@ class DatabaseDynamo(DatabaseInterface):
     def db_insert_main(self, newdata):
         return self.db_insert(self.cname, newdata)
     
-    def _prepDataForInsert(self, collection_name, newdata):
+    @staticmethod
+    def _prepDataForInsert(collection_name, newdata):
         if(collection_name == 'metadata'):
             newdata['timeField'] = time.mktime(newdata['startTime'].timetuple())
         else:
@@ -233,7 +305,7 @@ class DatabaseDynamo(DatabaseInterface):
     def db_single_insert(self, collection_name, newdata):
         ttable = self.ddb.Table(collection_name)
         # dynamo does not support float only decimal, watch out for datetime
-        checkdata = self._prepDataForInsert(collection_name, newdata)
+        checkdata = DatabaseDynamo._prepDataForInsert(collection_name, newdata)
         try:
             ttable.put_item(Item=checkdata)
             return checkdata['_id']

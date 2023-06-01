@@ -1,22 +1,10 @@
 import sys
-#import rosbag
 import json
-#from bson import json_util
-#from rospy_message_converter import message_converter
 from datetime import datetime
-#import pyprog
 import argparse
-#import sensor_msgs.point_cloud2 as pc2
-#import numpy as np
-#import uuid
 from decimal import Decimal
-#from google.protobuf.json_format import MessageToJson
-# import datetime
-# import time
-from databaseinterface import DatabaseInterface#DatabaseDynamo, DatabaseMongo
+from databaseinterface import DatabaseInterface
 import logging
-
-
 
 def ProcessRosbagFile(file, dbobject, channelList, metadata, force):
     from RosReader import RosReader
@@ -78,12 +66,10 @@ def main(args):
     
     if (config['database']['type'] == 'mongo'):
         logging.info(f"Connecting to database at {config['database']['uri']} / {config['database']['collection']}")
-        #dbobject = DatabaseMongo(args.mongodb)
-        #dbobject.check()
     elif (config['database']['type'] ==  'dynamo'):
-        logging.info(f"Connecting to database at {config['database']['uri']} / {config['database']['collection']}")
-        #dbobject = DatabaseDynamo(args.dynamodb)
-        #dbobject.check()    
+        logging.info(f"Connecting to database at {config['database']['uri']} / {config['database']['collection']}")   
+    elif (config['database']['type'] ==  'djson'):
+        logging.info(f"Using DynamoDB json export to files")
     else:
         logging.error(f"No database specified: {config['database']['type']}")
         sys.exit()

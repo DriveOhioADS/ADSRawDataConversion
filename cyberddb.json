@@ -12,11 +12,11 @@
     },
     "database":
     {
-        "type": "dynamo",
+        "type": "djson",
         "uri": "http://127.0.0.1:8000",
         "collection": "cyber",
         "databasename": "cyber",
-        "batch": true
+        "batch": false
     },
     "channelList":{
         "deny": [
