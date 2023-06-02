@@ -31,7 +31,9 @@ class DatabaseInterface:
         self.uristring = uristring
         self.cname = None
         self.type = ''
-
+        self.fileexportloc = ""
+        self.filesizelimit = 100e6
+        
     def check(self):
         print("class check")
 
@@ -152,11 +154,12 @@ class DatabaseExport(DatabaseInterface):
         self.dfilecount=0
         self.ddatalist=[]
         metadatafile='metadb'
-        self.tinydbmetaddata = TinyDB(os.path.join(self.fileexportloc,metadatafile))
+        
         self.cname = collection
         
     def db_connect(self):
         print('using djson export')
+        self.tinydbmetaddata = TinyDB(os.path.join(self.fileexportloc,metadatafile))
         
     def db_close(self):
         print('closing')
