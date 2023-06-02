@@ -153,13 +153,13 @@ class DatabaseExport(DatabaseInterface):
         #self.djson_file=None
         self.dfilecount=0
         self.ddatalist=[]
-        metadatafile='metadb'
+        self.metadatafile='metadb'
         
         self.cname = collection
         
     def db_connect(self):
         print('using djson export')
-        self.tinydbmetaddata = TinyDB(os.path.join(self.fileexportloc,metadatafile))
+        self.tinydbmetaddata = TinyDB(os.path.join(self.fileexportloc,self.metadatafile))
         
     def db_close(self):
         print('closing')
