@@ -152,7 +152,7 @@ class DatabaseExport(DatabaseInterface):
         self.dfilecount=0
         self.ddatalist=[]
         metadatafile='metadb'
-        self.tinydbmetaddata = TinyDB(metadatafile)
+        self.tinydbmetaddata = TinyDB(os.path.join(self.fileexportloc,metadatafile))
         self.cname = collection
         
     def db_connect(self):
