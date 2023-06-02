@@ -1,4 +1,5 @@
 import sys
+import os
 import json
 #from bson import json_util
 #from rospy_message_converter import message_converter
@@ -55,7 +56,9 @@ class DatabaseInterface:
 
     def setFileLimit(self, limit):
         self.filesizelimit = limit
-        
+    def setFileExportLocation(self, loc):
+        self.fileexportloc = loc
+            
 class DatabaseMongo(DatabaseInterface):
     def __init__(self, uristring, dbname):
         super().__init__(uristring)
@@ -162,7 +165,8 @@ class DatabaseExport(DatabaseInterface):
     def _writeoutfile(self):
         print('writing file...')
         ddata = djson.dumps(self.ddatalist)
-        with open(self.basedjsonfile + str(self.dfilecount)+'.txt','+w') as writer:
+        filelong = os.path.join(self.fileexportloc,self.basedjsonfile + str(self.dfilecount)+'.txt')
+        with open(filelong,'+w') as writer:
             writer.write(ddata)
         self.dfilecount=self.dfilecount+1
         self.dlistsize=0
@@ -174,12 +178,16 @@ class DatabaseExport(DatabaseInterface):
         if(collection == 'metadata'):
             self.tinydbmetaddata.insert(newdata)
             return newdata["_id"]
-        else:
-            self.ddatalist.append(newdata)
+        else: 
             datalen = len(djson.dumps(newdata))
-            self.dlistsize = self.dlistsize + datalen
-            if(self.dlistsize > self.filesizelimit):
+            if(self.dlistsize + datalen >= self.filesizelimit):
                 self._writeoutfile()
+            
+            self.ddatalist.append(newdata)
+            self.dlistsize = self.dlistsize + datalen
+            if(self.dlistsize >= self.filesizelimit):
+                self._writeoutfile()
+                
             return newdata["_id"]
            
     def db_insert_main(self, newdata):

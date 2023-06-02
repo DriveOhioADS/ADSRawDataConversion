@@ -80,6 +80,8 @@ def main(args):
     
     if (config['database']['type'] ==  'djson' and checkKey(config['database'], 'sizelimit')):
         dbobject.setFileLimit(config['database']['sizelimit'])
+    if (config['database']['type'] ==  'djson' and checkKey(config['database'], 'sizelimit')):
+        dbobject.setFileExportLocation(config['database']['fileexportlocation'])
         
     dbobject.setCollectionName(config['database']['collection'])
     dbobject.db_connect()  
