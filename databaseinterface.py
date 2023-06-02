@@ -53,6 +53,9 @@ class DatabaseInterface:
         obj.type = type
         return obj
 
+    def setFileLimit(self, limit):
+        self.filesizelimit = limit
+        
 class DatabaseMongo(DatabaseInterface):
     def __init__(self, uristring, dbname):
         super().__init__(uristring)
@@ -140,7 +143,7 @@ def generate_unique_id():
 class DatabaseExport(DatabaseInterface):
     def __init__(self, uri, collection):
         self.basedjsonfile='tempdata'
-        self.djson_sizelimit = 10e6
+        #self.djson_sizelimit = 10e6
         self.dlistsize=0
         #self.djson_file=None
         self.dfilecount=0
@@ -175,7 +178,7 @@ class DatabaseExport(DatabaseInterface):
             self.ddatalist.append(newdata)
             datalen = len(djson.dumps(newdata))
             self.dlistsize = self.dlistsize + datalen
-            if(self.dlistsize > self.djson_sizelimit):
+            if(self.dlistsize > self.filesizelimit):
                 self._writeoutfile()
             return newdata["_id"]
            
