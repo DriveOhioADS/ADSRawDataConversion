@@ -1,4 +1,5 @@
 # Byte-compiled / optimized / DLL files
+*.7z
 .vscode
 *.pkl
 __pycache__/
