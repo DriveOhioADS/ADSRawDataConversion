@@ -232,7 +232,7 @@ class CyberReader:
                     # print(f"\nRaw: {newitem['size']}")
                     
                     # print(f"\nJSON Size:{len(js)}")
-                    if(newitem['size'] < 20000):
+                    if(newitem['size'] < 2000):
                         dbobject.db_insert_main(newitem)
                     else:
                         logging.warning(f"Skipping message {newitem['topic']} because of size")
@@ -295,4 +295,4 @@ if __name__ == "__main__":
                         'other': 0,
                      }
     
-    cr.InsertDataFromFolder(dbobject, metadatasource, channelList, forceInsert=True)
+    #cr.InsertDataFromFolder(dbobject, metadatasource, channelList, forceInsert=True)
