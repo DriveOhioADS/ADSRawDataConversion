@@ -77,7 +77,10 @@ def main(args):
     dbobject = DatabaseInterface.CreateDatabaseInterface(config['database']['type'], 
                                                          config['database']['uri'], 
                                                          config['database']['databasename'])
-    
+    if (config['database']['type'] ==  'dynamo' and checkKey(config['database'], 'throughputSleep')):
+        dbobject.throughputSleep=config['database']['throughputSleep']
+    if (config['database']['type'] ==  'dynamo' and checkKey(config['database'], 'throughputExceededRepeat')):
+        dbobject.throughputExceededRepeat=config['database']['throughputExceededRepeat']
     if (config['database']['type'] ==  'djson' and checkKey(config['database'], 'sizelimit')):
         dbobject.setFileLimit(config['database']['sizelimit'])
     if (config['database']['type'] ==  'djson' and checkKey(config['database'], 'sizelimit')):

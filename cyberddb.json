@@ -7,14 +7,15 @@
     "file":
     {
         "type": "cyber",
-        "folder": "/mnt/h/cyberdata/",
-        "filebase": "20221117125313.record."
+        "folder": "/home/ubuntu/s3/TRC/VAN1/SmartCenter/202305041943/",
+        "filebase": "Van1_complex_nocam_run1.record"
     },
     "database":
     {
         "type": "djson",
-        "sizelimit": 200e6,
-        "uri": "http://127.0.0.1:8000",
+        "sizelimit": 20e6,
+        "fileexportlocation":"/home/ubuntu/s3/OU_tesing/TEMP",
+        "uri": "",
         "collection": "cyber",
         "databasename": "cyber",
         "batch": false

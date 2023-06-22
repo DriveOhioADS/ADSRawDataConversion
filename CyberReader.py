@@ -243,7 +243,7 @@ class CyberReader:
                     ######################################################
                     if(newitem['size'] < 400000):
                         if(batch):
-                            dbobject.db_putItemBatch(newitem)
+                            dbobject.db_putItemBatch(newitem)     
                         else:
                             dbobject.db_insert_main(newitem)
                     else:

@@ -16,7 +16,8 @@
         "uri": "https://dynamodb.us-east-2.amazonaws.com:443",
         "collection": "cyber",
         "databasename": "cyber",
-        "batch": true
+        "batch": true,
+        "throughputSleep": 20
     },
     "channelList":{
         "deny": [

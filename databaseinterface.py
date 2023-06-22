@@ -20,6 +20,7 @@ import time
 import datetime
 from tinydb import TinyDB, Query
 from dynamodb_json import json_util as djson
+import botocore.exceptions
 
 #boto3.set_stream_logger('boto', 'logs/boto.log')
 logging.getLogger('boto3').setLevel(logging.CRITICAL)
@@ -217,11 +218,14 @@ class DatabaseExport(DatabaseInterface):
         
             
 class DatabaseDynamo(DatabaseInterface):
-    def __init__(self, uristring, collection):
+    throughputSleep = 30
+    throughputExceededRepeat=10
+    def __init__(self, uristring, collection, throughputSleep=30, throughputExceededRepeat=10):
         super().__init__(uristring)
         print("DynamoDB init")
         self.ddb = None
-        
+        self.throughputSleep = throughputSleep
+        self.throughputExceededRepeat = throughputExceededRepeat
     def db_close(self):
         return 0
     
@@ -290,7 +294,25 @@ class DatabaseDynamo(DatabaseInterface):
     
     def db_putItemBatch(self, newdata):
         checkdata = DatabaseDynamo._prepDataForInsert(self.cname, newdata)
-        return self.bwriter.put_item(checkdata)
+        result = None
+        tries = 0
+        while True:
+            try:
+                tries = tries + 1
+                result = self.bwriter.put_item(checkdata)
+                return result
+            #except ClientError as err:
+            except botocore.exceptions.ClientError as err:
+                #botocore.errorfactory.ProvisionedThroughputExceededException as err:
+                if 'ProvisionedThroughputExceededException' not in err.response['Error']['Code']:
+                    raise
+                print(f"throughput exceeded, sleeping for {self.throughputSleep} seconds")
+                time.sleep(self.throughputSleep)
+            if(tries >= self.throughputExceededRepeat):
+                print("too many attempts")
+                raise TimeoutError("Too many attempts")
+        
+        #return result
     
     
     def db_insert(self, collection, newdata):
@@ -304,7 +326,9 @@ class DatabaseDynamo(DatabaseInterface):
         if(collection_name == 'metadata'):
             newdata['timeField'] = time.mktime(newdata['startTime'].timetuple())
         else:
-            newdata['timeField'] = time.mktime(newdata['timeField'].timetuple())
+            if(isinstance(newdata['timeField'],float)==False):
+                tf = newdata['timeField'].timetuple()
+                newdata['timeField'] = time.mktime(tf)
             
         newdata = json.loads(json.dumps(newdata, indent=4, sort_keys=True, default=str), parse_float=Decimal)
 
