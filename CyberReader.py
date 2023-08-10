@@ -25,6 +25,8 @@ class CyberReader:
     def ScanChannelFolder(self):
         all_channels = []
         filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
+        print(os.path.join(self.foldername,self.basefilename+"*"))
+        print(filelist)
         for file in filelist:
             new_channels = []
             new_channels = self.ScanChannelsSingleFile(file)
@@ -128,7 +130,9 @@ class CyberReader:
         unique_channels = []
         filelist = glob.glob(os.path.join(self.foldername,self.basefilename + "*"))
         self.totalmessagecount = 0
+        filecount = 0
         for filename in filelist:
+            filecount = filecount + 1
             pbfactory = cyberreader.ProtobufFactory()
             reader = cyberreader.RecordReader(filename)
             for channel in reader.GetChannelList():

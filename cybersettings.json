@@ -7,8 +7,8 @@
     "file":
     {
         "type": "cyber",
-        "folder": "/mnt/h/cyberdata/",
-        "filebase": "20221117125313.record."
+        "folder": "/home/jay/cdata",
+        "filebase": "20230531095500.record."
     },
     "database":
     {

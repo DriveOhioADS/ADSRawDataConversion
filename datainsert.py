@@ -95,10 +95,13 @@ def main(args):
     
     if(config['file']['type'] == 'cyber'):
         logging.info('Processing Cyber data')
+        batchmode = False
+        if('batch' in config['database']):
+            batchmode = config['database']['batch']
         ProcessCyberFile(cyberfolder=config['file']['folder'],cyberfilebase=config['file']['filebase'], 
                          dbobject=dbobject,
                          channelList=json_channels,
-                         metadata=config['metadata'], force=args.force, batch = config['database']['batch'])
+                         metadata=config['metadata'], force=args.force, batch = batchmode)
     elif(config['file']['type'] == 'rosbag'):
         logging.info("Loading rosbag")
         ProcessRosbagFile(file=config['file']['filename'],
