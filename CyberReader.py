@@ -224,7 +224,7 @@ class CyberReader:
                     newmeta_id = metadata_search
                     newitem = {
                         "topic": message.channel_name,
-                        "timeField": ntime, #remove isoformat todo .isoformat()
+                        "time": ntime, #remove isoformat todo .isoformat()
                         "size": len(message.content), 
                         "msg_type": "",     #msg._type,
                         "metadataID": newmeta_id} #todo remove str force 

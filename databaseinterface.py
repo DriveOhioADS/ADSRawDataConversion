@@ -115,7 +115,7 @@ class DatabaseMongo(DatabaseInterface):
 
         if (mycol == None):
             print("Creating the collection: " + self.cname)
-            mydb.create_collection(self.cname, timeseries={'timeField': 'timeField'})
+            mydb.create_collection(self.cname)#, timeseries={'timeField': 'timeField'})
             mycol = mydb[self.cname]
 
         self.myclient = mclient
@@ -324,7 +324,7 @@ class DatabaseDynamo(DatabaseInterface):
     @staticmethod
     def _prepDataForInsert(collection_name, newdata):
         if(collection_name == 'metadata'):
-            newdata['timeField'] = newdata['startTime']#time.mktime(newdata['startTime'].timetuple())
+            newdata['time'] = newdata['startTime']#time.mktime(newdata['startTime'].timetuple())
         #else:   
             #if(isinstance(newdata['timeField'],float)==False):
             #    tf = newdata['timeField'].timetuple()
@@ -384,7 +384,7 @@ class DatabaseDynamo(DatabaseInterface):
                                                   'KeyType': 'HASH'
                                               },
                                               {
-                                                  'AttributeName': timeField,
+                                                  'AttributeName': time,
                                                   'KeyType': 'RANGE'
                                               }
                                           ],
@@ -394,7 +394,7 @@ class DatabaseDynamo(DatabaseInterface):
                                                   'AttributeType': 'S'
                                               },
                                               {
-                                                  'AttributeName': timeField,
+                                                  'AttributeName': time,
                                                   'AttributeType': 'N'
                                               }
                                           ],
