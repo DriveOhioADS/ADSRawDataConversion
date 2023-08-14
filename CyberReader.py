@@ -159,8 +159,8 @@ class CyberReader:
             specificmeta = {
                 'filename': filename,
                 'foldername': self.foldername,
-                'startTime': datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
-                'endTime': datetime.utcfromtimestamp(reader.header.end_time/1000000000),
+                'startTime': reader.header.begin_time,#datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
+                'endTime': reader.header.end_time,#datetime.utcfromtimestamp(reader.header.end_time/1000000000),
                 'msgnum': reader.header.message_number,
                 'size': reader.header.size,
                 'topics': unique_channels,
@@ -216,7 +216,7 @@ class CyberReader:
                         sys.exit(-1)
                     
                     try:
-                        ntime = datetime.utcfromtimestamp(message.time/1000000000)
+                        ntime = message.time#datetime.utcfromtimestamp(message.time/1000000000)
                     except:
                         logging.exception("cyber time to timestamp failed")
                         sys.exit(-1)

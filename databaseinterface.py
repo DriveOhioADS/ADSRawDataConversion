@@ -324,11 +324,11 @@ class DatabaseDynamo(DatabaseInterface):
     @staticmethod
     def _prepDataForInsert(collection_name, newdata):
         if(collection_name == 'metadata'):
-            newdata['timeField'] = time.mktime(newdata['startTime'].timetuple())
-        else:
-            if(isinstance(newdata['timeField'],float)==False):
-                tf = newdata['timeField'].timetuple()
-                newdata['timeField'] = time.mktime(tf)
+            newdata['timeField'] = newdata['startTime']#time.mktime(newdata['startTime'].timetuple())
+        #else:   
+            #if(isinstance(newdata['timeField'],float)==False):
+            #    tf = newdata['timeField'].timetuple()
+            #    newdata['timeField'] = time.mktime(tf)
             
         newdata = json.loads(json.dumps(newdata, indent=4, sort_keys=True, default=str), parse_float=Decimal)
 
