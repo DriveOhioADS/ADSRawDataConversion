@@ -115,10 +115,10 @@ def main(args):
     logging.info("All done")
       
 if __name__ == '__main__':
-    logging.basicConfig(filename="insert.log", encoding='utf-8', level=logging.DEBUG)
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+    #logging.basicConfig(filename="insert.log", encoding='utf-8', level=logging.DEBUG)
+    #logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-    logging.info("datainsert start")
+    #logging.info("datainsert start")
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help='JSON formatted settings file', required=True)
     parser.add_argument('--lidar', default='', dest='lidar', action='store_true', help='Insert LiDAR', required=False)

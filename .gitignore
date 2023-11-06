@@ -142,3 +142,4 @@ testengage.py
 apollopy/*
 *.csv
 *.log
+launch.json
