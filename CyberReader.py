@@ -156,10 +156,12 @@ class CyberReader:
             #have to wait until startime is found for each file
             logging.info(f"Checking cyber metadata for file {filename}")
         
+            #timeName = 'startTime'
+            timeName = 'time'
             specificmeta = {
                 'filename': filename,
                 'foldername': self.foldername,
-                'startTime': reader.header.begin_time,#datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
+                timeName: reader.header.begin_time,#datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
                 'endTime': reader.header.end_time,#datetime.utcfromtimestamp(reader.header.end_time/1000000000),
                 'msgnum': reader.header.message_number,
                 'size': reader.header.size,
@@ -169,17 +171,24 @@ class CyberReader:
                 'type': 'cyber'
             }
             specificmeta.update(metadatasource)
-            metadata_search = dbobject.db_find_metadata_by_startTime('metadata', specificmeta['startTime'])
+            #print(specificmeta)
+            logging.info(f"Looking for meta object {specificmeta[timeName]}")
+            metadata_search = dbobject.db_find_metadata_by_startTime(dbobject.metatablename, specificmeta[timeName])
             if(metadata_search == None):
-                insert_result = dbobject.db_insert("metadata", specificmeta)
+                logging.info(f"Did not find it, so inserting metaa object {specificmeta[timeName]}")
+                insert_result = dbobject.db_insert(dbobject.metatablename, specificmeta)
                 if(insert_result == -1):
                     logging.error(f"metadata insert from cyber failed {filename}")
                     return -1
                 #check the insert was good
-                metadata_search = dbobject.db_find_metadata_by_id('metadata', insert_result)
+                logging.info(f"Looking for meta object again {specificmeta[timeName]}")
+
+                metadata_search = dbobject.db_find_metadata_by_id(dbobject.metatablename, insert_result)
                 if(metadata_search == None):
                     logging.error(f"metadata check from cyber failed {filename}")
                     return -1
+                logging.info(f"Meta object found again {specificmeta[timeName]}")
+
             elif not forceInsert:
                 logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
                 continue

@@ -40,6 +40,10 @@ def checkKey(dict, key):
     return False
     
 def main(args):
+    #logging.basicConfig()
+    logging.basicConfig(level = logging.INFO)
+    logging.basicConfig(filename='insert.log', encoding='utf-8', level=logging.INFO)
+    logging.info("Welcome to the ADS data to database process - by Wilhelm")
     try:
         with open(args.config, 'r') as file:
             config = json.load(file)
@@ -63,7 +67,7 @@ def main(args):
         logging.error(f"failed to load config from file {args.config}")
         return -1
 
-    
+    logging.info("Creating connection to database:")
     if (config['database']['type'] == 'mongo'):
         logging.info(f"Connecting to database at {config['database']['uri']} / {config['database']['collection']}")
     elif (config['database']['type'] ==  'dynamo'):
@@ -76,7 +80,8 @@ def main(args):
     
     dbobject = DatabaseInterface.CreateDatabaseInterface(config['database']['type'], 
                                                          config['database']['uri'], 
-                                                         config['database']['databasename'])
+                                                         config['database']['databasename'],
+                                                         metatablename=config['database']['metatablename'])
     if (config['database']['type'] ==  'dynamo' and checkKey(config['database'], 'throughputSleep')):
         dbobject.throughputSleep=config['database']['throughputSleep']
     if (config['database']['type'] ==  'dynamo' and checkKey(config['database'], 'throughputExceededRepeat')):

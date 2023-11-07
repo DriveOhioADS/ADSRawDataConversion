@@ -34,7 +34,8 @@ class DatabaseInterface:
         self.type = ''
         self.fileexportloc = ""
         self.filesizelimit = 100e6
-        
+        self.metatablename = "metadata"
+
     def check(self):
         print("class check")
 
@@ -47,7 +48,7 @@ class DatabaseInterface:
     def setCollectionName(self, cname):
         self.cname = cname
     
-    def CreateDatabaseInterface(type, uri, dbname):
+    def CreateDatabaseInterface(type, uri, dbname,metatablename="metadata"):
         if(type == 'mongo'):
             obj = DatabaseMongo(uri, dbname)
         elif(type == 'dynamo'):
@@ -55,6 +56,7 @@ class DatabaseInterface:
         elif(type == 'djson'):
             obj = DatabaseExport(uri, dbname)
         obj.type = type
+        obj.metatablename = metatablename
         return obj
 
     def setFileLimit(self, limit):
@@ -222,7 +224,7 @@ class DatabaseDynamo(DatabaseInterface):
     throughputExceededRepeat=10
     def __init__(self, uristring, collection, throughputSleep=30, throughputExceededRepeat=10):
         super().__init__(uristring)
-        print("DynamoDB init")
+        logging.info("DynamoDB init")
         self.ddb = None
         self.throughputSleep = throughputSleep
         self.throughputExceededRepeat = throughputExceededRepeat
@@ -235,7 +237,7 @@ class DatabaseDynamo(DatabaseInterface):
         if ENV_FILE:
             load_dotenv(ENV_FILE)
             
-        print(f"connecting to dynamodb {self.uristring}")
+        logging.info(f"connecting to dynamodb {self.uristring}")
         # client = boto3.client('dynamodb')
         # ddb = boto3.client('dynamodb', endpoint_url='http://172.31.144.1:8000',
         #                     aws_access_key_id="anything",
@@ -249,17 +251,17 @@ class DatabaseDynamo(DatabaseInterface):
                              aws_access_key_id=akey,
                              aws_secret_access_key=skey,
                              region_name="us-east-2", )
-        tables = list(ddb.tables.all())
-        print(tables)
+        #tables = list(ddb.tables.all())
+        #print(tables)
         self.ddb = ddb
 
-        result = self.checkTableExistsCreateIfNot("metadata")
+        result = self.checkTableExistsCreateIfNot(self.metatablename)
         if result == 0:
-            print("Table check/create issue")
+            logging.info("Table check/create issue")
             sys.exit()
         result = self.checkTableExistsCreateIfNot(self.cname)
         if result == 0:
-            print("Table check/create issue")
+            logging.info("Table check/create issue")
             sys.exit()
 
     def db_find_metadata_by_startTime(self, cname, key):
@@ -282,7 +284,7 @@ class DatabaseDynamo(DatabaseInterface):
             # mongo only gives ID because its not scanning
             # change from scan to query someday
         except TypeError:
-            print("cannot find item")
+            logging.info("cannot find item")
             return None
         # result = self.mydb[cname].find_one(sdata)
         # if (result != None):
@@ -306,10 +308,10 @@ class DatabaseDynamo(DatabaseInterface):
                 #botocore.errorfactory.ProvisionedThroughputExceededException as err:
                 if 'ProvisionedThroughputExceededException' not in err.response['Error']['Code']:
                     raise
-                print(f"throughput exceeded, sleeping for {self.throughputSleep} seconds")
+                logging.info(f"throughput exceeded, sleeping for {self.throughputSleep} seconds")
                 time.sleep(self.throughputSleep)
             if(tries >= self.throughputExceededRepeat):
-                print("too many attempts")
+                logging.info("too many attempts")
                 raise TimeoutError("Too many attempts")
         
         #return result
@@ -323,8 +325,8 @@ class DatabaseDynamo(DatabaseInterface):
     
     @staticmethod
     def _prepDataForInsert(collection_name, newdata):
-        if(collection_name == 'metadata'):
-            newdata['time'] = newdata['startTime']#time.mktime(newdata['startTime'].timetuple())
+        #if(collection_name == 'metadata'):
+        #    newdata['time'] = newdata['startTime']#time.mktime(newdata['startTime'].timetuple())
         #else:   
             #if(isinstance(newdata['timeField'],float)==False):
             #    tf = newdata['timeField'].timetuple()
@@ -348,17 +350,20 @@ class DatabaseDynamo(DatabaseInterface):
             ttable.put_item(Item=checkdata)
             return checkdata['_id']
         except ClientError as ce:
-            print(f"\nclient error on insert {ce}")
+            logging.info(f"Fail on table {collection_name}")
+            logging.info(newdata)
+            logging.info(f"\nclient error on insert {ce}")
+
             sys.exit()
         except TypeError as e:
-            print(f"\ntype error on insert {e}")
+            logging.info(f"\ntype error on insert {e}")
             #sys.exit()
 
     def checkTableExistsCreateIfNot(self, tname):
         ddb = self.ddb
         # dynamo only has tables, not dbs+collections, so the collection is table here
         ttable = self.ddb.Table(tname)
-        print(f"Looking for table {tname}")
+        logging.info(f"Looking for table {tname}")
 
         timeField = 'timeField'
         # if (tname == 'metadata'):
@@ -369,10 +374,10 @@ class DatabaseDynamo(DatabaseInterface):
         try:
             is_table_existing = ttable.table_status in ("CREATING", "UPDATING",
                                                         "DELETING", "ACTIVE")
-            print(f"table {tname} already exists, no need to create")
+            logging.info(f"table {tname} already exists, no need to create")
             return 1
         except ClientError:
-            print(f"Missing table {tname}")
+            logging.info(f"Missing table {tname}")
             createTable = True
 
         if (createTable):
@@ -400,11 +405,11 @@ class DatabaseDynamo(DatabaseInterface):
                                           ],
                                           ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
                                           )
-                print("Waiting for table creation")
+                logging.info("Waiting for table creation")
                 response = ttable.wait_until_exists()
                 return 1
             except:
-                print("failed to create table")
+                logging.info("failed to create table")
                 return -1
         return -1
 
