@@ -39,7 +39,47 @@ Example settings file:
     }
  }
  ```
+DynamoDB Example Config:
+```
+{
+    "metadata":{
+        "vehicleID": 0,
+        "experimentID": 0,
+        "other": "Test data"
+    },
+        "file":
+    {
+        "type": "cyber",
+        "folder": "~/cdata",
+        "filebase": "1234.record."
+    },
+    "database":
+    {
+        "type": "dynamo",
+        "uri": "https://dynamodb.us-east-2.amazonaws.com:443",
+        "collection": "ads_passenger_processed",
+        "databasename": "ads_passenger_processed",
+        "metatablename": "ads_passenger_processed_metadata",
+        "batch": true,
+        "throughputSleep": 20
+    },
+    "channelList":{
+        "deny": [
+            "/apollo/sensor/camera/front_6mm/image",
+            "/apollo/sensor/camera/front_6mm/image/compressed",
+            "/apollo/sensor/camera/front_25mm/image",
+            "/apollo/sensor/camera/front_25mm/image/compressed",
+            "/apollo/sensor/velodyne32/PointCloud2",
+            "/apollo/sensor/velodyne32/VelodyneScan",
+            "/apollo/planning",
+            "/apollo/prediction",
+            "/apollo/perception",
+            "/apollo/perception/obstacles"
+        ]
+    }
+ }
 
+```
 Database type of mongo or dynamo
 File type of cyber or rosbag (only single file for rosbags)
 
