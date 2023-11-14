@@ -126,7 +126,7 @@ class DatabaseMongo(DatabaseInterface):
 
 
     def db_find_metadata_by_startTime(self, cname, key):
-        return self.__db_find_metadata(cname, {'startTime': {'$eq':key}})
+        return self.__db_find_metadata(cname, {'time': {'$eq':key}})
 
     def db_find_metadata_by_id(self, cname, key):
         return self.__db_find_metadata(cname, {'_id': {'$eq':key}})
@@ -267,7 +267,7 @@ class DatabaseDynamo(DatabaseInterface):
     def db_find_metadata_by_startTime(self, cname, key):
         key = json.loads(json.dumps(key, indent=4, sort_keys=True, default=str), parse_float=Decimal)
         # key = time.mktime(key.timetuple())
-        filter_to_find = Attr('startTime').eq(key)
+        filter_to_find = Attr('time').eq(key)
         return self.__db_find_metadata(cname, filter_to_find)
 
     def db_find_metadata_by_id(self, cname, key):
