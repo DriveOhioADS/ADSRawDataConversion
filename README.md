@@ -1,4 +1,4 @@
-# ADSRosbagToMongoDB
+# ADSRawDataConversion
 This repo contains scripts to convert ROSBAG and Cyber data from autonomous vehicles to MongoDB or dynamodb.
 Not included currently: camera and LiDAR (upcoming with compression)
 
