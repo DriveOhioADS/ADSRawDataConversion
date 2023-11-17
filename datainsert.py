@@ -82,6 +82,7 @@ def main(args):
                                                          config['database']['uri'], 
                                                          config['database']['databasename'],
                                                          metatablename=config['database']['metatablename'])
+   
     if (config['database']['type'] ==  'dynamo' and checkKey(config['database'], 'throughputSleep')):
         dbobject.throughputSleep=config['database']['throughputSleep']
     if (config['database']['type'] ==  'dynamo' and checkKey(config['database'], 'throughputExceededRepeat')):
@@ -93,7 +94,8 @@ def main(args):
         
     dbobject.setCollectionName(config['database']['collection'])
     dbobject.db_connect()  
-    
+    if(args.checktables):
+        dbobject.CheckAllTables()
     json_channels = None
     if('channelList' in config):
         json_channels = config['channelList']
@@ -128,6 +130,7 @@ if __name__ == '__main__':
     parser.add_argument("--config", help='JSON formatted settings file', required=True)
     parser.add_argument('--lidar', default='', dest='lidar', action='store_true', help='Insert LiDAR', required=False)
     parser.add_argument('--force', default=False, dest='force', action='store_true', help='force insert')
+    parser.add_argument('--checktables', default=False, dest='checktables', action='store_true', help='check for tables and create if missing')
     try:
         args = parser.parse_args()
     except:

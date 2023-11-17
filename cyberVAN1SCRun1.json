@@ -13,9 +13,10 @@
     "database":
     {
         "type": "dynamo",
-        "uri": "https://dynamodb.us-east-2.amazonaws.com:443",
+        "uri": "http://localhost:8000",
         "collection": "cyber",
         "databasename": "cyber",
+        "metatablename": "meta",
         "batch": true,
         "throughputSleep": 20
     },

@@ -251,18 +251,10 @@ class DatabaseDynamo(DatabaseInterface):
                              aws_access_key_id=akey,
                              aws_secret_access_key=skey,
                              region_name="us-east-2", )
-        #tables = list(ddb.tables.all())
-        #print(tables)
+        
         self.ddb = ddb
 
-        result = self.checkTableExistsCreateIfNot(self.metatablename)
-        if result == 0:
-            logging.info("Table check/create issue")
-            sys.exit()
-        result = self.checkTableExistsCreateIfNot(self.cname)
-        if result == 0:
-            logging.info("Table check/create issue")
-            sys.exit()
+        #self.CheckAllTables()
 
     def db_find_metadata_by_startTime(self, cname, key):
         key = json.loads(json.dumps(key, indent=4, sort_keys=True, default=str), parse_float=Decimal)
@@ -359,13 +351,28 @@ class DatabaseDynamo(DatabaseInterface):
             logging.info(f"\ntype error on insert {e}")
             #sys.exit()
 
+    def CheckAllTables(self):
+        tables = list(self.ddb.tables.all())
+        logging.info(tables)
+        logging.info(f"Checking for table{self.metatablename}")
+        result = self.checkTableExistsCreateIfNot(self.metatablename)
+        if result == -1:
+            logging.info("Table check/create issue")
+            sys.exit()
+        logging.info(f"Checking for table{self.cname}")
+        result = self.checkTableExistsCreateIfNot(self.cname)
+        if result == -1:
+            logging.info("Table check/create issue")
+            sys.exit()
+        return 0  
+     
     def checkTableExistsCreateIfNot(self, tname):
         ddb = self.ddb
         # dynamo only has tables, not dbs+collections, so the collection is table here
         ttable = self.ddb.Table(tname)
         logging.info(f"Looking for table {tname}")
 
-        timeField = 'timeField'
+        #timeField = 'timeField'
         # if (tname == 'metadata'):
         #     timeField = 'startTime'
 
@@ -389,7 +396,7 @@ class DatabaseDynamo(DatabaseInterface):
                                                   'KeyType': 'HASH'
                                               },
                                               {
-                                                  'AttributeName': time,
+                                                  'AttributeName': 'time',
                                                   'KeyType': 'RANGE'
                                               }
                                           ],
@@ -399,7 +406,7 @@ class DatabaseDynamo(DatabaseInterface):
                                                   'AttributeType': 'S'
                                               },
                                               {
-                                                  'AttributeName': time,
+                                                  'AttributeName': 'time',
                                                   'AttributeType': 'N'
                                               }
                                           ],
@@ -411,6 +418,6 @@ class DatabaseDynamo(DatabaseInterface):
             except:
                 logging.info("failed to create table")
                 return -1
-        return -1
+        return 0
 
 
