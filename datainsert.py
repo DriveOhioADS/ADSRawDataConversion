@@ -78,6 +78,10 @@ def main(args):
         logging.error(f"No database specified: {config['database']['type']}")
         sys.exit()
     
+    if(config['database']['databasename'] == config['database']['metatablename']):
+        logging.error("Data table and metadata name cannot be the same!")
+        sys.exit()
+        
     dbobject = DatabaseInterface.CreateDatabaseInterface(config['database']['type'], 
                                                          config['database']['uri'], 
                                                          config['database']['databasename'],
