@@ -9,6 +9,7 @@ from databaseinterface import DatabaseDynamo, DatabaseMongo
 import pyprog
 import logging
 import time
+import uuid
 
 class CyberReader:
     def __init__(self, foldername=None, basefilename=None):
@@ -48,73 +49,7 @@ class CyberReader:
         self.reader = None
         return unqiue_channel
 
-    # def GetNextMessageFromFolder(self):
-    #     if(self.filelist == None):
-    #         #todo fix path combine
-    #         self.filelist = glob.glob(self.foldername+"/"+self.basefilename+"*")
-    #         self.SetCurrentFile(self.filelist.pop(0))
-    #         return self.GetNextMessageFromFile()
-    #     else:
-    #         msg = self.GetNextMessageFromFile()
-    #         if(msg == None and len(self.filelist) > 0):
-    #             self.SetCurrentFile(self.filelist.pop(0))
-    #             return self.GetNextMessageFromFile()
-    #         elif(msg == None and len(self.filelist) == 0):
-    #             #end of files and messages
-    #             return None
-    #         else:
-    #             return msg
-        
-    
-    # def SetCurrentFile(self, filename):
-    #     self.curr_filename = filename
-    #     self.reader = None
-    #     print(self.message_process_count)
-    #     print("Moving to file: "+ self.curr_filename)
-
-        
-    # def GetNextMessageFromFile(self):
-    #     if(self.reader == None):
-    #         self.reader = cyberreader.RecordReader(self.curr_filename)
-    #         if(self.reader.is_valid != True):
-    #             print("Invalid file")
-    #             sys.exit(-1)
-    #     if(self.pbfactory == None):
-    #         print("need to scan channels first")
-    #         sys.exit(-1)
-               
-    #     message = self.message
-    #     if(self.reader.ReadMessage(message)):
-    #         self.message_process_count = self.message_process_count + 1
-    #         self.totalmessagecount = self.totalmessagecount + 1
-    #         message_type = self.reader.GetMessageType(message.channel_name)
-    #         msg = self.pbfactory.GenerateMessageByType(message_type)
-    #         msg.ParseFromString(message.content)
-    #         #print(message.channel_name)
-    #         # if(message.channel_name == "/tf" or
-    #         #     message.channel_name == "/apollo/sensor/gnss/raw_data" or
-    #         #     message.channel_name == "/apollo/sensor/gnss/corrected_imu" or
-    #         #     message.channel_name == "/apollo/localization/pose"):
-    #             #print("msg[%d]-> channel name: %s; message type: %s; message time: %d, content: %s" % (count, message.channel_name, message_type, message.time, msg))
-    #         if(message.channel_name == "/apollo/sensor/camera/front_6mm/image" or
-    #             message.channel_name == "/apollo/sensor/camera/front_6mm/image/compressed" or
-    #             message.channel_name == "/apollo/sensor/camera/front_25mm/image" or
-    #             message.channel_name == "/apollo/sensor/camera/front_25mm/image/compressed" or
-    #             message.channel_name == "/apollo/sensor/velodyne32/PointCloud2" or
-    #             message.channel_name == "/apollo/sensor/velodyne32/VelodyneScan" or
-    #             message.channel_name == "/apollo/prediction/perception_obstacles"):
-    #             return 0
-    #         else:
-    #             jdata = MessageToJson(msg)
-    #             #print(jdata)
-    #             # todo add metadata, time, channel, etc.
-    #             return jdata
-    #             #todo have accept/deny list
-    #             #insert into database
-    #     else:
-    #         # all out of messages for this file
-    #         return None
-        
+       
     def InsertDataFromFolder(self, dbobject, metadatasource,
                              channelList=None,
                              forceInsert=False,
@@ -128,9 +63,10 @@ class CyberReader:
         logging.info("Inserting cyberdata from folder " + self.foldername)
 
         unique_channels = []
-        filelist = glob.glob(os.path.join(self.foldername,self.basefilename + "*"))
+        filelist = sorted(glob.glob(os.path.join(self.foldername,self.basefilename + "*")))
         self.totalmessagecount = 0
         filecount = 0
+        groupMetaDataID = str(uuid.uuid1())
         for filename in filelist:
             filecount = filecount + 1
             pbfactory = cyberreader.ProtobufFactory()
@@ -168,14 +104,15 @@ class CyberReader:
                 'topics': unique_channels,
                 #'deny': deny_channels, #having the full list and deny/accept was too much for mongo
                 #'allow': allow_channels,
-                'type': 'cyber'
+                'type': 'cyber',
+                'groupID': groupMetaDataID 
             }
             specificmeta.update(metadatasource)
             #print(specificmeta)
             logging.info(f"Looking for meta object {specificmeta[timeName]}")
             metadata_search = dbobject.db_find_metadata_by_startTime(dbobject.metatablename, specificmeta[timeName])
             if(metadata_search == None):
-                logging.info(f"Did not find it, so inserting metaa object {specificmeta[timeName]}")
+                logging.info(f"Did not find it, so inserting meta object {specificmeta[timeName]}")
                 insert_result = dbobject.db_insert(dbobject.metatablename, specificmeta)
                 if(insert_result == -1):
                     logging.error(f"metadata insert from cyber failed {filename}")
@@ -236,7 +173,8 @@ class CyberReader:
                         "time": ntime, #remove isoformat todo .isoformat()
                         "size": len(message.content), 
                         "msg_type": "",     #msg._type,
-                        "metadataID": newmeta_id} #todo remove str force 
+                        "metadataID": newmeta_id,
+                        "groupMetadataID": groupMetaDataID} #todo remove str force 
                     try:
                         jdata = json.loads(MessageToJson(msg))
                     except Exception as e:

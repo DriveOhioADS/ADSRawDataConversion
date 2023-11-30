@@ -1,21 +1,24 @@
 {
     "metadata":{
-        "vehicleID": 8,
-        "experimentID": 8,
+        "vehicleID": "OUPacifica",
+        "experimentID": 13,
         "other": 0
     },
     "file":
     {
         "type": "cyber",
-        "folder": "/home/jay/cdata",
-        "filebase": "20230531095500.record."
+        "folder": "/home/jay/adsnas/CYBERBAGS/Blue Route/OU Pacifica/1674155613",
+        "filebase": "20230119141333.record."
     },
     "database":
     {
-        "type": "mongo",
-        "uri": "mongodb://127.0.0.1:27017",
+        "type": "dynamo",
+        "uri": "http://127.0.0.1:8000",
         "collection": "cyber",
-        "databasename": "cyber"
+        "databasename": "cyber",
+        "metatablename": "meta",
+        "batch": true,
+        "throughputSleep": 20
     },
     "channelList":{
         "deny": [

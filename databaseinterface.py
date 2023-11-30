@@ -398,6 +398,14 @@ class DatabaseDynamo(DatabaseInterface):
                                               {
                                                   'AttributeName': 'time',
                                                   'KeyType': 'RANGE'
+                                              },
+                                              {
+                                                  'AttributeName': 'groupMetadataID',
+                                                  'KeyType': 'RANGE'
+                                              },
+                                              {
+                                                  'AttributeName': 'topic',
+                                                  'KeyType': 'RANGE'
                                               }
                                           ],
                                           AttributeDefinitions=[
@@ -408,6 +416,14 @@ class DatabaseDynamo(DatabaseInterface):
                                               {
                                                   'AttributeName': 'time',
                                                   'AttributeType': 'N'
+                                              },
+                                              {
+                                                  'AttributeName': 'groupMetadataID',
+                                                  'AttributeType': 'S'
+                                              },
+                                              {
+                                                  'AttributeName': 'topic',
+                                                  'AttributeType': 'S'
                                               }
                                           ],
                                           ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
