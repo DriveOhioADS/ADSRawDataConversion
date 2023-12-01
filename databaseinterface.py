@@ -357,12 +357,12 @@ class DatabaseDynamo(DatabaseInterface):
         logging.info(f"Checking for table{self.metatablename}")
         result = self.checkTableExistsCreateIfNot(self.metatablename)
         if result == -1:
-            logging.info("Table check/create issue")
+            logging.info("Table check/create issue 1")
             sys.exit()
         logging.info(f"Checking for table{self.cname}")
         result = self.checkTableExistsCreateIfNot(self.cname)
         if result == -1:
-            logging.info("Table check/create issue")
+            logging.info("Table check/create issue 2")
             sys.exit()
         return 0  
      
@@ -399,14 +399,7 @@ class DatabaseDynamo(DatabaseInterface):
                                                   'AttributeName': 'time',
                                                   'KeyType': 'RANGE'
                                               },
-                                              {
-                                                  'AttributeName': 'groupMetadataID',
-                                                  'KeyType': 'RANGE'
-                                              },
-                                              {
-                                                  'AttributeName': 'topic',
-                                                  'KeyType': 'RANGE'
-                                              }
+                                             
                                           ],
                                           AttributeDefinitions=[
                                               {
@@ -426,12 +419,47 @@ class DatabaseDynamo(DatabaseInterface):
                                                   'AttributeType': 'S'
                                               }
                                           ],
-                                          ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
-                                          )
+                                          GlobalSecondaryIndexes=[
+                                            {
+                                                'IndexName': 'DataIndex',
+                                                'KeySchema': [
+                                                    {
+                                                       'AttributeName': 'groupMetadataID',
+                                                       'KeyType': 'HASH'
+                                                    },
+                                                ],
+                                                'Projection': {
+                                                    'ProjectionType': 'ALL',
+                                                },
+                                                'ProvisionedThroughput': {
+                                                    'ReadCapacityUnits': 5,
+                                                    'WriteCapacityUnits': 5,
+                                                }
+                                            },
+                                            {
+                                                'IndexName': 'TopicIndex',
+                                                'KeySchema': [
+                                                    {
+                                                       'AttributeName': 'topic',
+                                                       'KeyType': 'HASH'
+                                                    }
+                                                ],
+                                                'Projection': {
+                                                    'ProjectionType': 'ALL',
+                                                },
+                                                'ProvisionedThroughput': {
+                                                    'ReadCapacityUnits': 5,
+                                                    'WriteCapacityUnits': 5,
+                                                }
+                                            }
+                                        ],
+                                        ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                                        )
                 logging.info("Waiting for table creation")
                 response = ttable.wait_until_exists()
                 return 1
-            except:
+            except ClientError as e:
+                logging.info(e.response)
                 logging.info("failed to create table")
                 return -1
         return 0
