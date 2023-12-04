@@ -67,6 +67,8 @@ class CyberReader:
         self.totalmessagecount = 0
         filecount = 0
         groupMetaDataID = str(uuid.uuid1())
+        open(os.path.join(self.foldername,"groupid.txt"),'wb').write(groupMetaDataID)
+        logging.info(f"ID for this insert is {groupMetaDataID}")
         for filename in filelist:
             filecount = filecount + 1
             pbfactory = cyberreader.ProtobufFactory()
