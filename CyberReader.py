@@ -67,8 +67,9 @@ class CyberReader:
         self.totalmessagecount = 0
         filecount = 0
         groupMetaDataID = str(uuid.uuid1())
-        open(os.path.join(self.foldername,"groupid.txt"),'wb').write(groupMetaDataID)
         logging.info(f"ID for this insert is {groupMetaDataID}")
+
+        open(os.path.join(self.foldername,"groupid.txt"),'w').write(groupMetaDataID)
         for filename in filelist:
             filecount = filecount + 1
             pbfactory = cyberreader.ProtobufFactory()
@@ -111,7 +112,7 @@ class CyberReader:
             }
             specificmeta.update(metadatasource)
             #print(specificmeta)
-            logging.info(f"Looking for meta object {specificmeta[timeName]}")
+            logging.info(f"Looking for meta time {specificmeta[timeName]}")
             metadata_search = dbobject.db_find_metadata_by_startTime(dbobject.metatablename, specificmeta[timeName])
             if(metadata_search == None):
                 logging.info(f"Did not find it, so inserting meta object {specificmeta[timeName]}")
@@ -120,7 +121,7 @@ class CyberReader:
                     logging.error(f"metadata insert from cyber failed {filename}")
                     return -1
                 #check the insert was good
-                logging.info(f"Looking for meta object again {specificmeta[timeName]}")
+                logging.info(f"Looking for meta time again {specificmeta[timeName]}")
 
                 metadata_search = dbobject.db_find_metadata_by_id(dbobject.metatablename, insert_result)
                 if(metadata_search == None):
