@@ -98,7 +98,7 @@ class CyberReader:
             #timeName = 'startTime'
             timeName = 'time'
             specificmeta = {
-                'filename': filename,
+                'filename': self.basefilename,
                 'foldername': self.foldername,
                 timeName: reader.header.begin_time,#datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
                 'endTime': reader.header.end_time,#datetime.utcfromtimestamp(reader.header.end_time/1000000000),
