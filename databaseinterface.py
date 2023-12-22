@@ -263,7 +263,7 @@ class DatabaseDynamo(DatabaseInterface):
         return self.__db_find_metadata(cname, filter_to_find)
 
     def db_find_metadata_by_id(self, cname, key):
-        filter_to_find = Attr('_id').eq(key)
+        filter_to_find = Key('_id').eq(key)
         return self.__db_find_metadata(cname, filter_to_find)
     
     def __db_find_metadata(self, cname, filter_to_find):

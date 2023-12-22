@@ -110,25 +110,27 @@ def main(args):
     else:
         fullfoldername = config['file']['folder']
     logging.info(f"Folder to use: {fullfoldername}")
+    ret = 0
     if(config['file']['type'] == 'cyber'):
         logging.info('Processing Cyber data')
         batchmode = False
         if('batch' in config['database']):
             batchmode = config['database']['batch']
-        ProcessCyberFile(cyberfolder=fullfoldername,cyberfilebase=config['file']['filebase'], 
+        ret = ProcessCyberFile(cyberfolder=fullfoldername,cyberfilebase=config['file']['filebase'], 
                          dbobject=dbobject,
                          channelList=json_channels,
                          metadata=config['metadata'], force=args.force, batch = batchmode)
     elif(config['file']['type'] == 'rosbag'):
         logging.info("Loading rosbag")
-        ProcessRosbagFile(file=config['file']['filename'],
+        ret = ProcessRosbagFile(file=config['file']['filename'],
                           dbobject=dbobject, 
                           channeList=json_channels, 
                           metadata=config['metadata'], force=args.force)  
     else:
         logging.error(f"No data file source specified: {config['file']['type']}")
         sys.exit()
-
+    if(ret != 0):
+        logging.error("Failure to finish")
     logging.info("All done")
       
 if __name__ == '__main__':

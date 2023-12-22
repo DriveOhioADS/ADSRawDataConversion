@@ -121,13 +121,16 @@ class CyberReader:
                     logging.error(f"metadata insert from cyber failed {filename}")
                     return -1
                 #check the insert was good
-                logging.info(f"Looking for meta time again {specificmeta[timeName]}")
-
-                metadata_search = dbobject.db_find_metadata_by_id(dbobject.metatablename, insert_result)
+                for i in range(0,10):
+                    logging.info(f"{i}: Looking for meta time again {specificmeta[timeName]}")
+                    time.sleep(2)
+                    metadata_search = dbobject.db_find_metadata_by_id(dbobject.metatablename, insert_result)
+                    if(metadata_search is not None):
+                        logging.info(f"Meta object found again {specificmeta[timeName]}")
+                        break
                 if(metadata_search == None):
-                    logging.error(f"metadata check from cyber failed {filename}")
+                    logging.error(f"{i}: metadata check from cyber failed {filename}")
                     return -1
-                logging.info(f"Meta object found again {specificmeta[timeName]}")
 
             elif not forceInsert:
                 logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
