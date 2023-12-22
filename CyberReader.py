@@ -66,10 +66,20 @@ class CyberReader:
         filelist = sorted(glob.glob(os.path.join(self.foldername,self.basefilename + "*")))
         self.totalmessagecount = 0
         filecount = 0
-        groupMetaDataID = str(uuid.uuid1())
-        logging.info(f"ID for this insert is {groupMetaDataID}")
+        
+        gpID = ""
+        with open(os.path.join(self.foldername,"groupid.txt"),'r') as f:
+            gpID = f.read()
+            logging.info("reading groupID:"+gpID)
+            
+        if(len(gpID)!=0):
+            groupMetaDataID = str(uuid.uuid1())
+            logging.info(f"NEW ID for this insert is {groupMetaDataID}")
+            open(os.path.join(self.foldername,"groupid.txt"),'w').write(groupMetaDataID)
+        else:
+            groupMetaDataID = gpID
 
-        open(os.path.join(self.foldername,"groupid.txt"),'w').write(groupMetaDataID)
+        
         for filename in filelist:
             filecount = filecount + 1
             pbfactory = cyberreader.ProtobufFactory()
@@ -120,17 +130,18 @@ class CyberReader:
                 if(insert_result == -1):
                     logging.error(f"metadata insert from cyber failed {filename}")
                     return -1
+                metadata_search = insert_result
                 #check the insert was good
-                for i in range(0,10):
-                    logging.info(f"{i}: Looking for meta time again {specificmeta[timeName]}")
-                    time.sleep(2)
-                    metadata_search = dbobject.db_find_metadata_by_id(dbobject.metatablename, insert_result)
-                    if(metadata_search is not None):
-                        logging.info(f"Meta object found again {specificmeta[timeName]}")
-                        break
-                if(metadata_search == None):
-                    logging.error(f"{i}: metadata check from cyber failed {filename}")
-                    return -1
+                # for i in range(0,10):
+                #     logging.info(f"{i}: Looking for meta time again {specificmeta[timeName]}")
+                #     time.sleep(2)
+                #     metadata_search = dbobject.db_find_metadata_by_id(dbobject.metatablename, insert_result)
+                #     if(metadata_search is not None):
+                #         logging.info(f"Meta object found again {specificmeta[timeName]}")
+                #         break
+                # if(metadata_search == None):
+                #     logging.error(f"{i}: metadata check from cyber failed {filename}")
+                #     return -1
 
             elif not forceInsert:
                 logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")

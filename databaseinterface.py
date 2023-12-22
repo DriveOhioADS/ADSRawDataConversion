@@ -264,8 +264,19 @@ class DatabaseDynamo(DatabaseInterface):
 
     def db_find_metadata_by_id(self, cname, key):
         filter_to_find = Key('_id').eq(key)
-        return self.__db_find_metadata(cname, filter_to_find)
-    
+        #return self.__db_find_metadata(cname, filter_to_find)
+        ttable = self.ddb.Table(cname)
+        try:
+            result = ttable.query(KeyConditionExpression=filter_to_find)
+            if result['Count'] == 0:
+                return None
+            return result['Items'][0]['_id']
+            # mongo only gives ID because its not scanning
+            # change from scan to query someday
+        except TypeError:
+            logging.info("cannot find item")
+            return None
+        
     def __db_find_metadata(self, cname, filter_to_find):
         ttable = self.ddb.Table(cname)
         try:
