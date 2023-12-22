@@ -81,7 +81,7 @@ def GrabMetaData():
     item_count = 0
     FilterExpression=Key('_id').gt(-1)
     #& Attr('time').gt(-1)
-    FilterExpression=Attr('time').gt(-1)
+    FilterExpression=Attr('time').eq(1684775758278271301)
 
     scan_kwargs = {
                 #'KeyConditionExpression': FilterExpression,
@@ -95,9 +95,9 @@ def GrabMetaData():
         while not done:
             if start_key:
                 scan_kwargs["ExclusiveStartKey"] = start_key
-            response = metatable.query(KeyConditionExpression=Key('_id').eq('f8d3e312-9542-11ee-956e-9da2d070324')
-                                       )#**scan_kwargs)
-            #response = metatable.scan(**scan_kwargs)
+            #response = metatable.query(KeyConditionExpression=Key('_id').eq('2aa5ca92-93ae-11ee-956e-9da2d070324c')
+            #                           )#**scan_kwargs)
+            response = metatable.scan(**scan_kwargs)
             items_scanned = items_scanned + response['ScannedCount']
             item_count = item_count = response['Count']
             #if(response['Count'] != 0):
@@ -123,7 +123,8 @@ for item in items:#response['Items']:
     if(True):
     #if('1684733733' in item['filename']):
     #if('1674155613' in item['filename']):
-    #if('1684354335' in item['filename']):
+    #if('20230522131549' in item['filename']):
+    #if(item['time'] == 1684776202798360726):
         print(f"{count}: {item['_id']},{item['time']},{item['vehicleID']},{item['experimentID']},{item['filename']}") #{item['groupID']}
         count = count + 1
 

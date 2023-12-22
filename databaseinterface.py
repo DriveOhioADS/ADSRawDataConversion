@@ -260,7 +260,53 @@ class DatabaseDynamo(DatabaseInterface):
         key = json.loads(json.dumps(key, indent=4, sort_keys=True, default=str), parse_float=Decimal)
         # key = time.mktime(key.timetuple())
         filter_to_find = Attr('time').eq(key)
-        return self.__db_find_metadata(cname, filter_to_find)
+        
+        ttable = self.ddb.Table(cname)
+        # try:
+        #     result = ttable.scan(FilterExpression=filter_to_find)
+        #     if result['Count'] == 0:
+        #         return None
+        #     return result['Items'][0]['_id']
+        #     # mongo only gives ID because its not scanning
+        #     # change from scan to query someday
+        # except TypeError:
+        #     logging.info("cannot find item")
+        #     return None
+        items = []
+        items_scanned = 0
+        item_count = 0
+
+        scan_kwargs = {
+                    #'KeyConditionExpression': FilterExpression,
+                    "FilterExpression": filter_to_find,
+                    #"ProjectionExpression": "#yr, title, info.rating",
+                    #"ExpressionAttributeNames": {"#yr": "year"},
+                }
+        try:
+            done = False
+            start_key = None
+            while not done:
+                if start_key:
+                    scan_kwargs["ExclusiveStartKey"] = start_key
+                #response = metatable.query(KeyConditionExpression=Key('_id').eq('2aa5ca92-93ae-11ee-956e-9da2d070324c')
+                #                           )#**scan_kwargs)
+                response = ttable.scan(**scan_kwargs)
+                items_scanned = items_scanned + response['ScannedCount']
+                item_count = item_count = response['Count']
+                #if(response['Count'] != 0):
+                #    print(response['Items'][0])
+                items.extend(response.get("Items", []))
+                start_key = response.get("LastEvaluatedKey", None)
+                print(f"{start_key} / {items_scanned} - {len(items)} + {item_count}")
+                done = start_key is None
+        except botocore.exceptions.ClientError as err:
+            print(
+                    "Couldn't scan for movies. Here's why: %s: %s",
+                    err.response["Error"]["Code"],
+                    err.response["Error"]["Message"],
+                )
+            
+        return items['Items'][0]['_id']
 
     def db_find_metadata_by_id(self, cname, key):
         filter_to_find = Key('_id').eq(key)
@@ -277,18 +323,8 @@ class DatabaseDynamo(DatabaseInterface):
             logging.info("cannot find item")
             return None
         
-    def __db_find_metadata(self, cname, filter_to_find):
-        ttable = self.ddb.Table(cname)
-        try:
-            result = ttable.scan(FilterExpression=filter_to_find)
-            if result['Count'] == 0:
-                return None
-            return result['Items'][0]['_id']
-            # mongo only gives ID because its not scanning
-            # change from scan to query someday
-        except TypeError:
-            logging.info("cannot find item")
-            return None
+    #def __db_find_metadata(self, cname, filter_to_find):
+        
         # result = self.mydb[cname].find_one(sdata)
         # if (result != None):
         #    return result["_id"]
