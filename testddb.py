@@ -6,6 +6,8 @@ from dotenv import find_dotenv, load_dotenv
 from os import environ as env
 from boto3.dynamodb.conditions import Key, Attr
 
+import sys
+
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
@@ -20,7 +22,7 @@ dynamodb = boto3.resource('dynamodb', endpoint_url="https://dynamodb.us-east-2.a
 metatable = dynamodb.Table('ads_passenger_processed_metadata')
 cybertable = dynamodb.Table('ads_passenger_processed')
 
-print(metatable.creation_date_time)
+#print(metatable.creation_date_time)
 
 #response = table.scan()
 #print(response)
@@ -73,10 +75,71 @@ def GrabCyberData(filterexp):
     #latitude
     #longitude
     
-    
-response = metatable.scan(
-        #FilterExpression=Attr('experimentID').eq(13)
-    )
+def GrabMetaData():
+    items = []
+    items_scanned = 0
+    item_count = 0
+    FilterExpression=Key('_id').gt(-1)
+    #& Attr('time').gt(-1)
+    FilterExpression=Attr('time').gt(-1)
 
-for item in response['Items']:
-    print(f"{item['time']},{item['vehicleID']},{item['experimentID']},{item['filename']}") #{item['groupID']}
+    scan_kwargs = {
+                #'KeyConditionExpression': FilterExpression,
+                "FilterExpression": FilterExpression,
+                #"ProjectionExpression": "#yr, title, info.rating",
+                #"ExpressionAttributeNames": {"#yr": "year"},
+            }
+    try:
+        done = False
+        start_key = None
+        while not done:
+            if start_key:
+                scan_kwargs["ExclusiveStartKey"] = start_key
+            response = metatable.query(KeyConditionExpression=Key('_id').eq('f8d3e312-9542-11ee-956e-9da2d070324')
+                                       )#**scan_kwargs)
+            #response = metatable.scan(**scan_kwargs)
+            items_scanned = items_scanned + response['ScannedCount']
+            item_count = item_count = response['Count']
+            #if(response['Count'] != 0):
+            #    print(response['Items'][0])
+            items.extend(response.get("Items", []))
+            start_key = response.get("LastEvaluatedKey", None)
+            print(f"{start_key} / {items_scanned} - {len(items)} + {item_count}")
+            done = start_key is None
+    except botocore.exceptions.ClientError as err:
+        print(
+                "Couldn't scan for movies. Here's why: %s: %s",
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"],
+            )
+    return items
+
+# response = metatable.scan(
+#         #FilterExpression=Attr('experimentID').eq(13)
+#     )
+items = GrabMetaData()
+count = 0
+for item in items:#response['Items']:
+    if(True):
+    #if('1684733733' in item['filename']):
+    #if('1674155613' in item['filename']):
+    #if('1684354335' in item['filename']):
+        print(f"{count}: {item['_id']},{item['time']},{item['vehicleID']},{item['experimentID']},{item['filename']}") #{item['groupID']}
+        count = count + 1
+
+    #if('groupID' in item):
+    #    print(item['groupID'])
+    
+    # if('jay' in item['filename']):
+    #     newfilename = item['filename'].replace("/home/jay/s3bucket/","")
+    #     #newfilename = item['filename'].replace("/home/jay/","")
+    #     print(f"updating: {newfilename}")
+    #     udpexp = "set filename=:f"
+    #     expattrv = {":f":newfilename}
+    #     response = metatable.update_item(Key={"_id": item['_id'], "time": item['time']},
+    #                         UpdateExpression=udpexp,
+    #                         ExpressionAttributeValues=expattrv,
+    #                         ReturnValues="UPDATED_NEW")
+  
+
+    
