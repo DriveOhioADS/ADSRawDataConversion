@@ -6,6 +6,7 @@ from datetime import datetime
 import cyberreaderlib as cyberreader
 from google.protobuf.json_format import MessageToJson
 from databaseinterface import DatabaseDynamo, DatabaseMongo
+import databaseinterface
 import pyprog
 import logging
 import time
@@ -110,14 +111,14 @@ class CyberReader:
             specificmeta = {
                 'filename': self.basefilename,
                 'foldername': self.foldername,
-                timeName: reader.header.begin_time,#datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
+                databaseinterface.TIME_FIELD_NAME: reader.header.begin_time,#datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
                 'endTime': reader.header.end_time,#datetime.utcfromtimestamp(reader.header.end_time/1000000000),
                 'msgnum': reader.header.message_number,
-                'size': reader.header.size,
+                'headerSize': reader.header.size,
                 'topics': unique_channels,
                 #'deny': deny_channels, #having the full list and deny/accept was too much for mongo
                 #'allow': allow_channels,
-                'type': 'cyber',
+                'dataType': 'cyber',
                 'groupID': groupMetaDataID 
             }
             specificmeta.update(metadatasource)
@@ -187,8 +188,8 @@ class CyberReader:
                     newmeta_id = metadata_search
                     newitem = {
                         "topic": message.channel_name,
-                        "time": ntime, #remove isoformat todo .isoformat()
-                        "size": len(message.content), 
+                        databaseinterface.TIME_FIELD_NAME: ntime, #remove isoformat todo .isoformat()
+                        "msgsize": len(message.content), 
                         "msg_type": "",     #msg._type,
                         "metadataID": newmeta_id,
                         "groupMetadataID": groupMetaDataID} #todo remove str force 
@@ -224,9 +225,10 @@ class CyberReader:
                 #else:
                 #    print("Ignore " + message.channel_name)
             prog.end()
-            print(f"Insert Count:{numinsert}")
-            print(f"Message Count {msgcount}")
+            logging.info(f"Insert Count:{numinsert}")
+            logging.info(f"Message Count {msgcount}")
         dbobject.db_close()
+        logging.info(f"Processed {filecount} files")
                          
 if __name__ == "__main__":
     

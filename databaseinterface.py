@@ -27,7 +27,11 @@ logging.getLogger('boto3').setLevel(logging.CRITICAL)
 logging.getLogger('botocore').setLevel(logging.CRITICAL)
 logging.getLogger('nose').setLevel(logging.CRITICAL)
 
+ID_FIELD_NAME = 'dataid'
+TIME_FIELD_NAME = 'msgtime'
+
 class DatabaseInterface:
+
     def __init__(self, uristring):
         self.uristring = uristring
         self.cname = None
@@ -126,16 +130,16 @@ class DatabaseMongo(DatabaseInterface):
 
 
     def db_find_metadata_by_startTime(self, cname, key):
-        return self.__db_find_metadata(cname, {'time': {'$eq':key}})
+        return self.__db_find_metadata(cname, {TIME_FIELD_NAME: {'$eq':key}})
 
     def db_find_metadata_by_id(self, cname, key):
-        return self.__db_find_metadata(cname, {'_id': {'$eq':key}})
+        return self.__db_find_metadata(cname, {ID_FIELD_NAME: {'$eq':key}})
         
     def __db_find_metadata(self, cname, filter):
         #key = sdata['startTime']
         result = self.mydb[cname].find_one(filter)
         if result != None:
-            return result["_id"]
+            return result[ID_FIELD_NAME]
         return None
 
     # def insert_metadata(self, metadata):
@@ -183,7 +187,7 @@ class DatabaseExport(DatabaseInterface):
         newdata = djson.loads(newdata)
         if(collection == 'metadata'):
             self.tinydbmetaddata.insert(newdata)
-            return newdata["_id"]
+            return newdata[ID_FIELD_NAME]
         else: 
             datalen = len(djson.dumps(newdata))
             if(self.dlistsize + datalen >= self.filesizelimit):
@@ -194,7 +198,7 @@ class DatabaseExport(DatabaseInterface):
             if(self.dlistsize >= self.filesizelimit):
                 self._writeoutfile()
                 
-            return newdata["_id"]
+            return newdata[ID_FIELD_NAME]
            
     def db_insert_main(self, newdata):
         self.db_insert(self.cname, newdata)
@@ -206,7 +210,7 @@ class DatabaseExport(DatabaseInterface):
         if(len(result) <= 0):
             result = None
         else:
-            result = result[0]['_id']
+            result = result[0][ID_FIELD_NAME]
         return result
     
     def db_find_metadata_by_id(self, cname, key):
@@ -215,7 +219,7 @@ class DatabaseExport(DatabaseInterface):
         if(len(result) <= 0):
             result = None
         else:
-            result = result[0]['_id']
+            result = result[0][ID_FIELD_NAME]
         return result
         
             
@@ -297,26 +301,26 @@ class DatabaseDynamo(DatabaseInterface):
                 #    print(response['Items'][0])
                 items.extend(response.get("Items", []))
                 start_key = response.get("LastEvaluatedKey", None)
-                print(f"{start_key} / {items_scanned} - {len(items)} + {item_count}")
+                #print(f"{start_key} / {items_scanned} - {len(items)} + {item_count}")
                 done = start_key is None
         except botocore.exceptions.ClientError as err:
-            print(
+            logging.error(
                     "Couldn't scan for movies. Here's why: %s: %s",
                     err.response["Error"]["Code"],
                     err.response["Error"]["Message"],
                 )
             
-        return items['Items'][0]['_id']
+        return items[0][ID_FIELD_NAME]
 
     def db_find_metadata_by_id(self, cname, key):
-        filter_to_find = Key('_id').eq(key)
+        filter_to_find = Key(ID_FIELD_NAME).eq(key)
         #return self.__db_find_metadata(cname, filter_to_find)
         ttable = self.ddb.Table(cname)
         try:
             result = ttable.query(KeyConditionExpression=filter_to_find)
             if result['Count'] == 0:
                 return None
-            return result['Items'][0]['_id']
+            return result['Items'][0][ID_FIELD_NAME]
             # mongo only gives ID because its not scanning
             # change from scan to query someday
         except TypeError:
@@ -377,7 +381,7 @@ class DatabaseDynamo(DatabaseInterface):
         # also we need to generate a unique ID
         newUUID = str(generate_unique_id())
         #print(newUUID)
-        checkdata = {'_id': newUUID}
+        checkdata = {ID_FIELD_NAME: newUUID}
         checkdata.update(newdata)
         return checkdata
     
@@ -387,7 +391,7 @@ class DatabaseDynamo(DatabaseInterface):
         checkdata = DatabaseDynamo._prepDataForInsert(collection_name, newdata)
         try:
             ttable.put_item(Item=checkdata)
-            return checkdata['_id']
+            return checkdata[ID_FIELD_NAME]
         except ClientError as ce:
             logging.info(f"Fail on table {collection_name}")
             logging.info(newdata)
@@ -439,22 +443,22 @@ class DatabaseDynamo(DatabaseInterface):
                 ttable = ddb.create_table(TableName=tname,
                                           KeySchema=[
                                               {
-                                                  'AttributeName': '_id',
+                                                  'AttributeName': ID_FIELD_NAME,#'_id',
                                                   'KeyType': 'HASH'
                                               },
                                               {
-                                                  'AttributeName': 'time',
+                                                  'AttributeName': TIME_FIELD_NAME,#'time',
                                                   'KeyType': 'RANGE'
                                               },
                                              
                                           ],
                                           AttributeDefinitions=[
                                               {
-                                                  'AttributeName': '_id',
+                                                  'AttributeName': ID_FIELD_NAME,
                                                   'AttributeType': 'S'
                                               },
                                               {
-                                                  'AttributeName': 'time',
+                                                  'AttributeName': TIME_FIELD_NAME,
                                                   'AttributeType': 'N'
                                               },
                                               {
