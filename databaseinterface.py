@@ -309,7 +309,8 @@ class DatabaseDynamo(DatabaseInterface):
                     err.response["Error"]["Code"],
                     err.response["Error"]["Message"],
                 )
-            
+        if(len(items)<=0):
+            return None
         return items[0][ID_FIELD_NAME]
 
     def db_find_metadata_by_id(self, cname, key):

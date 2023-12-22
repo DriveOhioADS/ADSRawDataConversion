@@ -107,7 +107,7 @@ class CyberReader:
             logging.info(f"Checking cyber metadata for file {filename}")
         
             #timeName = 'startTime'
-            timeName = 'time'
+            timeName = databaseinterface.TIME_FIELD_NAME
             specificmeta = {
                 'filename': self.basefilename,
                 'foldername': self.foldername,
@@ -210,7 +210,7 @@ class CyberReader:
                     # print(f"\nJSON Size:{len(js)}")
                     
                     ######################################################
-                    if(newitem['size'] < 400000):
+                    if(newitem['msgsize'] < 400000):
                         if(batch):
                             dbobject.db_putItemBatch(newitem)     
                         else:
