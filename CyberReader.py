@@ -54,7 +54,8 @@ class CyberReader:
     def InsertDataFromFolder(self, dbobject, metadatasource,
                              channelList=None,
                              forceInsert=False,
-                             batch=False):
+                             batch=False,
+                             rootdir=''):
         
         logging.info("Scanning folder to get list of all channels:")
         all_channels = self.ScanChannelFolder()
@@ -73,7 +74,7 @@ class CyberReader:
             gpID = f.read()
             logging.info("reading groupID:"+gpID)
             
-        if(len(gpID)!=0):
+        if(len(gpID)==0):
             groupMetaDataID = str(uuid.uuid1())
             logging.info(f"NEW ID for this insert is {groupMetaDataID}")
             open(os.path.join(self.foldername,"groupid.txt"),'w').write(groupMetaDataID)
@@ -108,8 +109,9 @@ class CyberReader:
         
             #timeName = 'startTime'
             timeName = databaseinterface.TIME_FIELD_NAME
+            mfilename = filename.replace(rootdir,'')
             specificmeta = {
-                'filename': self.basefilename,
+                'filename': mfilename,
                 'foldername': self.foldername,
                 databaseinterface.TIME_FIELD_NAME: reader.header.begin_time,#datetime.utcfromtimestamp(reader.header.begin_time/1000000000),
                 'endTime': reader.header.end_time,#datetime.utcfromtimestamp(reader.header.end_time/1000000000),
@@ -133,21 +135,25 @@ class CyberReader:
                     return -1
                 metadata_search = insert_result
                 #check the insert was good
-                # for i in range(0,10):
-                #     logging.info(f"{i}: Looking for meta time again {specificmeta[timeName]}")
-                #     time.sleep(2)
-                #     metadata_search = dbobject.db_find_metadata_by_id(dbobject.metatablename, insert_result)
-                #     if(metadata_search is not None):
-                #         logging.info(f"Meta object found again {specificmeta[timeName]}")
-                #         break
-                # if(metadata_search == None):
-                #     logging.error(f"{i}: metadata check from cyber failed {filename}")
-                #     return -1
+                
+                logging.info(f"Looking for meta time again {specificmeta[timeName]}")
+                time.sleep(0.5)
+                metadata_search = dbobject.db_find_metadata_by_id(dbobject.metatablename, insert_result)
+                if(metadata_search is not None):
+                    logging.info(f"Meta object found again {specificmeta[timeName]}")  
+                elif(metadata_search == None):
+                    logging.error(f"metadata check from cyber failed {filename}")
+                    return -1
 
             elif not forceInsert:
                 logging.warning(f"metadata for {filename} already exists, data most likely is already present. Override with --force")
                 continue
                            
+            
+            #setup batch, if requested
+            if(batch):
+                batchobject = dbobject.db_getBatchWriter()
+                logging.info('using batch mode')
             #start the message extract process
             message = cyberreader.RecordMessage()
             num_msg = reader.header.message_number
@@ -156,11 +162,6 @@ class CyberReader:
             prog.update()
             msgcount = 0
             numinsert = 0
-            #setup batch, if requested
-            if(batch):
-                batchobject = dbobject.db_getBatchWriter()
-                print('using batch mode')
- 
             while reader.ReadMessage(message):
                 self.totalmessagecount = self.totalmessagecount + 1
                 msgcount = msgcount + 1

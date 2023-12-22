@@ -15,7 +15,7 @@ if ENV_FILE:
 akey = env.get('access_key_id')
 skey = env.get('secret_access_key')
 
-dynamodb = boto3.resource('dynamodb', endpoint_url="https://dynamodb.us-east-2.amazonaws.com:443",
+dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000",#endpoint_url="https://dynamodb.us-east-2.amazonaws.com:443",
                         aws_access_key_id=akey,
                         aws_secret_access_key=skey,
                         region_name="us-east-2", )
@@ -81,11 +81,12 @@ def GrabMetaData():
     item_count = 0
     FilterExpression=Key('_id').gt(-1)
     #& Attr('time').gt(-1)
-    FilterExpression=Attr('time').eq(1684775758278271301)
+    FilterExpression=Attr('msgtime').gt(-1)
 
     scan_kwargs = {
                 #'KeyConditionExpression': FilterExpression,
                 "FilterExpression": FilterExpression,
+                "ProjectionExpression": "msgtime, dataid, filename, groupID, size, msgnum, foldername, vehicleID, experimentID",
                 #"ProjectionExpression": "#yr, title, info.rating",
                 #"ExpressionAttributeNames": {"#yr": "year"},
             }
@@ -125,7 +126,7 @@ for item in items:#response['Items']:
     #if('1674155613' in item['filename']):
     #if('20230522131549' in item['filename']):
     #if(item['time'] == 1684776202798360726):
-        print(f"{count}: {item['_id']},{item['time']},{item['vehicleID']},{item['experimentID']},{item['filename']}") #{item['groupID']}
+        print(f"{count}: {item['dataid']},{item['msgtime']},{item['vehicleID']},{item['experimentID']},{item['filename']}") #{item['groupID']}
         count = count + 1
 
     #if('groupID' in item):

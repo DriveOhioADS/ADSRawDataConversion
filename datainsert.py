@@ -15,7 +15,7 @@ def ProcessRosbagFile(file, dbobject, channelList, metadata, force):
                           force=force, process_lidar=False)
 
 
-def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata, force, batch):
+def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata, force, batch,rootdir=''):
     from CyberReader import CyberReader
     cr = CyberReader(cyberfolder, cyberfilebase)
     #check that deny/allow are present and set defaults
@@ -32,7 +32,7 @@ def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata
                     'deny': deny,
                     'allow': allow
                     }  
-    cr.InsertDataFromFolder(dbobject, metadata, channelList, force, batch)   
+    cr.InsertDataFromFolder(dbobject, metadata, channelList, force, batch, rootdir)   
     return 0
 
 def checkKey(dict, key):
@@ -107,8 +107,11 @@ def main(args):
 
     if(args.rootdir != None):  
         fullfoldername = os.path.join(args.rootdir,config['file']['folder'])
+        rootdir=args.rootdir
     else:
         fullfoldername = config['file']['folder']
+        rootdir=""
+
     logging.info(f"Folder to use: {fullfoldername}")
     ret = 0
     if(config['file']['type'] == 'cyber'):
@@ -119,7 +122,7 @@ def main(args):
         ret = ProcessCyberFile(cyberfolder=fullfoldername,cyberfilebase=config['file']['filebase'], 
                          dbobject=dbobject,
                          channelList=json_channels,
-                         metadata=config['metadata'], force=args.force, batch = batchmode)
+                         metadata=config['metadata'], force=args.force, batch = batchmode,rootdir=rootdir)
     elif(config['file']['type'] == 'rosbag'):
         logging.info("Loading rosbag")
         ret = ProcessRosbagFile(file=config['file']['filename'],

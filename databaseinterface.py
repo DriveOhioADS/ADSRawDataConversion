@@ -263,7 +263,7 @@ class DatabaseDynamo(DatabaseInterface):
     def db_find_metadata_by_startTime(self, cname, key):
         key = json.loads(json.dumps(key, indent=4, sort_keys=True, default=str), parse_float=Decimal)
         # key = time.mktime(key.timetuple())
-        filter_to_find = Attr('time').eq(key)
+        filter_to_find = Attr(TIME_FIELD_NAME).eq(key)
         
         ttable = self.ddb.Table(cname)
         # try:
@@ -281,10 +281,8 @@ class DatabaseDynamo(DatabaseInterface):
         item_count = 0
 
         scan_kwargs = {
-                    #'KeyConditionExpression': FilterExpression,
                     "FilterExpression": filter_to_find,
-                    #"ProjectionExpression": "#yr, title, info.rating",
-                    #"ExpressionAttributeNames": {"#yr": "year"},
+                    "ProjectionExpression": "msgtime, dataid, filename, groupID, size, msgnum, foldername, vehicleID, experimentID",
                 }
         try:
             done = False
@@ -314,6 +312,7 @@ class DatabaseDynamo(DatabaseInterface):
         return items[0][ID_FIELD_NAME]
 
     def db_find_metadata_by_id(self, cname, key):
+        #todo fix this for large returns
         filter_to_find = Key(ID_FIELD_NAME).eq(key)
         #return self.__db_find_metadata(cname, filter_to_find)
         ttable = self.ddb.Table(cname)
