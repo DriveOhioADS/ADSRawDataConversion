@@ -70,10 +70,13 @@ class CyberReader:
         filecount = 0
         
         gpID = ""
-        with open(os.path.join(self.foldername,"groupid.txt"),'r') as f:
-            gpID = f.read()
-            logging.info("reading groupID:"+gpID)
-            
+        try:
+            with open(os.path.join(self.foldername,"groupid.txt"),'r') as f:
+                gpID = f.read()
+                logging.info("reading groupID:"+gpID)
+        except:
+            logging.info("no groupid file found") 
+
         if(len(gpID)==0):
             groupMetaDataID = str(uuid.uuid1())
             logging.info(f"NEW ID for this insert is {groupMetaDataID}")
@@ -121,7 +124,7 @@ class CyberReader:
                 #'deny': deny_channels, #having the full list and deny/accept was too much for mongo
                 #'allow': allow_channels,
                 'dataType': 'cyber',
-                'groupID': groupMetaDataID 
+                'groupMetadataID': groupMetaDataID 
             }
             specificmeta.update(metadatasource)
             #print(specificmeta)

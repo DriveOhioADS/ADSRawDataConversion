@@ -27,8 +27,11 @@ logging.getLogger('boto3').setLevel(logging.CRITICAL)
 logging.getLogger('botocore').setLevel(logging.CRITICAL)
 logging.getLogger('nose').setLevel(logging.CRITICAL)
 
-ID_FIELD_NAME = 'dataid'
-TIME_FIELD_NAME = 'msgtime'
+ID_FIELD_NAME = '_id'
+TIME_FIELD_NAME = 'time'
+
+ID_FIELD_NAME_EXP = '#_id'
+TIME_FIELD_NAME_EXP = '#time'
 
 class DatabaseInterface:
 
@@ -282,7 +285,8 @@ class DatabaseDynamo(DatabaseInterface):
 
         scan_kwargs = {
                     "FilterExpression": filter_to_find,
-                    "ProjectionExpression": "msgtime, dataid, filename, groupID, size, msgnum, foldername, vehicleID, experimentID",
+                    "ProjectionExpression": f"{ID_FIELD_NAME_EXP}, {TIME_FIELD_NAME_EXP}, filename, groupID, size, msgnum, foldername, vehicleID, experimentID",
+                    "ExpressionAttributeNames": { ID_FIELD_NAME_EXP: ID_FIELD_NAME , TIME_FIELD_NAME_EXP: TIME_FIELD_NAME},
                 }
         try:
             done = False
@@ -317,7 +321,8 @@ class DatabaseDynamo(DatabaseInterface):
         #return self.__db_find_metadata(cname, filter_to_find)
         ttable = self.ddb.Table(cname)
         try:
-            result = ttable.query(KeyConditionExpression=filter_to_find)
+            result = ttable.query(KeyConditionExpression=filter_to_find,
+                                 )
             if result['Count'] == 0:
                 return None
             return result['Items'][0][ID_FIELD_NAME]

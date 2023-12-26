@@ -14,8 +14,9 @@ if ENV_FILE:
             
 akey = env.get('access_key_id')
 skey = env.get('secret_access_key')
-
-dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000",#endpoint_url="https://dynamodb.us-east-2.amazonaws.com:443",
+#EPURL = "http://localhost:8000",
+EPURL = "https://dynamodb.us-east-2.amazonaws.com:443"
+dynamodb = boto3.resource('dynamodb', endpoint_url=EPURL,
                         aws_access_key_id=akey,
                         aws_secret_access_key=skey,
                         region_name="us-east-2", )
@@ -86,7 +87,9 @@ def GrabMetaData():
     scan_kwargs = {
                 #'KeyConditionExpression': FilterExpression,
                 "FilterExpression": FilterExpression,
-                "ProjectionExpression": "msgtime, dataid, filename, groupID, size, msgnum, foldername, vehicleID, experimentID",
+                "ProjectionExpression": "#_id, #time, msgtime, dataid, filename, groupID, size, msgnum, foldername, vehicleID, experimentID",
+                "ExpressionAttributeNames": { "#_id": "_id" , "#time": "time"},
+
                 #"ProjectionExpression": "#yr, title, info.rating",
                 #"ExpressionAttributeNames": {"#yr": "year"},
             }
@@ -118,6 +121,14 @@ def GrabMetaData():
 # response = metatable.scan(
 #         #FilterExpression=Attr('experimentID').eq(13)
 #     )
+ID_FIELD_NAME_EXP = "_id"
+filter_to_find = Key(ID_FIELD_NAME_EXP).eq("8464b630-7da8-11ee-9f1c-2d3ffa529224")
+result = metatable.query(KeyConditionExpression=filter_to_find,
+                         #ExpressionAttributeNames= { "#_id": "_id" , "#time": "time"}
+                        )
+#aws dynamodb query --table-name ads_passenger_processed_metadata --key-condition-expression "#id = :_id" --expression-attribute-names '{"#id":"_id"}' --expression-attribute-values '{":_id":{"S":"8464b630-7da8-11ee-9f1c-2d3ffa529224"}}'
+print(result)
+
 items = GrabMetaData()
 count = 0
 for item in items:#response['Items']:
