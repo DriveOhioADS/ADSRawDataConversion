@@ -15,9 +15,9 @@ def ProcessRosbagFile(file, dbobject, channelList, metadata, force):
                           force=force, process_lidar=False)
 
 
-def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata, force, batch,rootdir=''):
+def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata, force, batch,rootdir):
     from CyberReader import CyberReader
-    cr = CyberReader(cyberfolder, cyberfilebase)
+    cr = CyberReader(rootdir, cyberfolder, cyberfilebase) #rootpath + rootdir + cyberfilebase (isolate out to remove the root later on)
     #check that deny/allow are present and set defaults
     if(channelList != None):
         if('deny' in channelList and channelList['deny'] != None):
@@ -32,7 +32,7 @@ def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata
                     'deny': deny,
                     'allow': allow
                     }  
-    cr.InsertDataFromFolder(dbobject, metadata, channelList, force, batch, rootdir)   
+    cr.InsertDataFromFolder(dbobject, metadata, channelList, force, batch)   
     return 0
 
 def checkKey(dict, key):
@@ -106,20 +106,20 @@ def main(args):
         json_channels = config['channelList']
 
     if(args.rootdir != None):  
-        fullfoldername = os.path.join(args.rootdir,config['file']['folder'])
+        foldername = config['file']['folder']
         rootdir=args.rootdir
     else:
-        fullfoldername = config['file']['folder']
+        foldername = config['file']['folder']
         rootdir=""
 
-    logging.info(f"Folder to use: {fullfoldername}")
+    logging.info(f"Folder to use: {rootdir}{foldername}")
     ret = 0
     if(config['file']['type'] == 'cyber'):
         logging.info('Processing Cyber data')
         batchmode = False
         if('batch' in config['database']):
             batchmode = config['database']['batch']
-        ret = ProcessCyberFile(cyberfolder=fullfoldername,cyberfilebase=config['file']['filebase'], 
+        ret = ProcessCyberFile(cyberfolder=foldername,cyberfilebase=config['file']['filebase'], 
                          dbobject=dbobject,
                          channelList=json_channels,
                          metadata=config['metadata'], force=args.force, batch = batchmode,rootdir=rootdir)

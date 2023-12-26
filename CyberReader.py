@@ -10,10 +10,12 @@ import databaseinterface
 import pyprog
 import logging
 import time
+import datetime
 import uuid
 
 class CyberReader:
-    def __init__(self, foldername=None, basefilename=None):
+    def __init__(self, rootdir=None, foldername=None, basefilename=None):
+        self.rootdir = rootdir
         self.foldername = foldername
         self.basefilename = basefilename
         self.message = cyberreader.RecordMessage()
@@ -24,10 +26,10 @@ class CyberReader:
         self.message_process_count = 0
         self.totalmessagecount = 0
 
-    def ScanChannelFolder(self):
+    def ScanChannelFolder(self,fullfoldername):
         all_channels = []
-        filelist = glob.glob(os.path.join(self.foldername,self.basefilename+"*"))
-        print(os.path.join(self.foldername,self.basefilename+"*"))
+        filelist = glob.glob(os.path.join(fullfoldername,self.basefilename+"*"))
+        print(os.path.join(fullfoldername,self.basefilename+"*"))
         print(filelist)
         for file in filelist:
             new_channels = []
@@ -54,24 +56,25 @@ class CyberReader:
     def InsertDataFromFolder(self, dbobject, metadatasource,
                              channelList=None,
                              forceInsert=False,
-                             batch=False,
-                             rootdir=''):
+                             batch=False):
         
+        fullfoldername = os.path.join(self.rootdir,self.foldername)
+
         logging.info("Scanning folder to get list of all channels:")
-        all_channels = self.ScanChannelFolder()
+        all_channels = self.ScanChannelFolder(fullfoldername)
         for channel in all_channels:
             print(channel)
         
-        logging.info("Inserting cyberdata from folder " + self.foldername)
+        logging.info("Inserting cyberdata from folder " + fullfoldername)
 
         unique_channels = []
-        filelist = sorted(glob.glob(os.path.join(self.foldername,self.basefilename + "*")))
+        filelist = sorted(glob.glob(os.path.join(fullfoldername,self.basefilename + "*")))
         self.totalmessagecount = 0
         filecount = 0
         
         gpID = ""
         try:
-            with open(os.path.join(self.foldername,"groupid.txt"),'r') as f:
+            with open(os.path.join(fullfoldername,"groupid.txt"),'r') as f:
                 gpID = f.read()
                 logging.info("reading groupID:"+gpID)
         except:
@@ -80,7 +83,7 @@ class CyberReader:
         if(len(gpID)==0):
             groupMetaDataID = str(uuid.uuid1())
             logging.info(f"NEW ID for this insert is {groupMetaDataID}")
-            open(os.path.join(self.foldername,"groupid.txt"),'w').write(groupMetaDataID)
+            open(os.path.join(fullfoldername,"groupid.txt"),'w').write(groupMetaDataID)
         else:
             groupMetaDataID = gpID
 
@@ -112,7 +115,7 @@ class CyberReader:
         
             #timeName = 'startTime'
             timeName = databaseinterface.TIME_FIELD_NAME
-            mfilename = filename.replace(rootdir,'')
+            mfilename = filename.replace(self.rootdir,'')
             specificmeta = {
                 'filename': mfilename,
                 'foldername': self.foldername,
@@ -124,7 +127,8 @@ class CyberReader:
                 #'deny': deny_channels, #having the full list and deny/accept was too much for mongo
                 #'allow': allow_channels,
                 'dataType': 'cyber',
-                'groupMetadataID': groupMetaDataID 
+                'groupMetadataID': groupMetaDataID,
+                'insertDateTime': str(datetime.datetime.now())
             }
             specificmeta.update(metadatasource)
             #print(specificmeta)
@@ -160,7 +164,7 @@ class CyberReader:
             #start the message extract process
             message = cyberreader.RecordMessage()
             num_msg = reader.header.message_number
-            logging.info("Inserting data # -> " + str(num_msg))
+            logging.info(f"Inserting data # -> {str(num_msg)} file {filecount} of {len(filelist)}")
             prog = pyprog.ProgressBar("-> ", " OK!", num_msg)
             prog.update()
             msgcount = 0

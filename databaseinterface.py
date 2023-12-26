@@ -307,7 +307,7 @@ class DatabaseDynamo(DatabaseInterface):
                 done = start_key is None
         except botocore.exceptions.ClientError as err:
             logging.error(
-                    "Couldn't scan for movies. Here's why: %s: %s",
+                    "Couldn't scan: Here's why: %s: %s",
                     err.response["Error"]["Code"],
                     err.response["Error"]["Message"],
                 )
@@ -316,7 +316,7 @@ class DatabaseDynamo(DatabaseInterface):
         return items[0][ID_FIELD_NAME]
 
     def db_find_metadata_by_id(self, cname, key):
-        #todo fix this for large returns
+        #todo fix this for large returns, which should not happen when looking for SINGLE ID
         filter_to_find = Key(ID_FIELD_NAME).eq(key)
         #return self.__db_find_metadata(cname, filter_to_find)
         ttable = self.ddb.Table(cname)
