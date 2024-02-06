@@ -268,52 +268,82 @@ class DatabaseDynamo(DatabaseInterface):
         # key = time.mktime(key.timetuple())
         filter_to_find = Attr(TIME_FIELD_NAME).eq(key)
         
-        ttable = self.ddb.Table(cname)
-        # try:
-        #     result = ttable.scan(FilterExpression=filter_to_find)
-        #     if result['Count'] == 0:
-        #         return None
-        #     return result['Items'][0]['_id']
-        #     # mongo only gives ID because its not scanning
-        #     # change from scan to query someday
-        # except TypeError:
-        #     logging.info("cannot find item")
-        #     return None
-        items = []
-        items_scanned = 0
-        item_count = 0
+        metatable = self.ddb.Table(cname)
+        
+        querymode = True
+        if(querymode):
+            #FilterExpression=Attr('time').gt(0)#eq(1696870306072587273)
+            scan_kwargs = {
+                'IndexName': 'time-index',
+                'KeyConditionExpression': Key('time').eq(key)
+                #"FilterExpression": FilterExpression,
+                #"ProjectionExpression": "#_id, #time, msgtime, dataid, filename, groupMetadataID, size, msgnum, foldername, vehicleID, experimentID",
+                #"ExpressionAttributeNames": {":time":{"N":"1696870306072587273"}}#{ "#_id": "_id" , "#time": "time"},
+            }
+            try:
+                items = []
+                items_scanned = 0
+                item_count = 0
+                done = False
+                start_key = None
+                while not done:
+                    if start_key:
+                        scan_kwargs["ExclusiveStartKey"] = start_key
+                    #response = metatable.get_item(Key={'time':{'N':1696870306072587273}})
+                    response = metatable.query(**scan_kwargs)
+                    #response = metatable.scan(**scan_kwargs)
+                    items_scanned = items_scanned + response['ScannedCount']
+                    item_count = item_count = response['Count']
+                    items.extend(response.get("Items", []))
+                    start_key = response.get("LastEvaluatedKey", None)
+                    print(f"{start_key} / {items_scanned} - {len(items)} + {item_count}")
+                    done = start_key is None
+            except botocore.exceptions.ClientError as err:
+                print(
+                        "Couldn't scan for item. Here's why: %s: %s",
+                        err.response["Error"]["Code"],
+                        err.response["Error"]["Message"],
+                    )
+            if(len(items)<=0):
+                return None
+            return items[0][ID_FIELD_NAME]
+        
+        else:
+            items = []
+            items_scanned = 0
+            item_count = 0
 
-        scan_kwargs = {
-                    "FilterExpression": filter_to_find,
-                    "ProjectionExpression": f"{ID_FIELD_NAME_EXP}, {TIME_FIELD_NAME_EXP}, filename, groupID, size, msgnum, foldername, vehicleID, experimentID",
-                    "ExpressionAttributeNames": { ID_FIELD_NAME_EXP: ID_FIELD_NAME , TIME_FIELD_NAME_EXP: TIME_FIELD_NAME},
-                }
-        try:
-            done = False
-            start_key = None
-            while not done:
-                if start_key:
-                    scan_kwargs["ExclusiveStartKey"] = start_key
-                #response = metatable.query(KeyConditionExpression=Key('_id').eq('2aa5ca92-93ae-11ee-956e-9da2d070324c')
-                #                           )#**scan_kwargs)
-                response = ttable.scan(**scan_kwargs)
-                items_scanned = items_scanned + response['ScannedCount']
-                item_count = item_count = response['Count']
-                #if(response['Count'] != 0):
-                #    print(response['Items'][0])
-                items.extend(response.get("Items", []))
-                start_key = response.get("LastEvaluatedKey", None)
-                #print(f"{start_key} / {items_scanned} - {len(items)} + {item_count}")
-                done = start_key is None
-        except botocore.exceptions.ClientError as err:
-            logging.error(
-                    "Couldn't scan: Here's why: %s: %s",
-                    err.response["Error"]["Code"],
-                    err.response["Error"]["Message"],
-                )
-        if(len(items)<=0):
-            return None
-        return items[0][ID_FIELD_NAME]
+            scan_kwargs = {
+                        "FilterExpression": filter_to_find,
+                        "ProjectionExpression": f"{ID_FIELD_NAME_EXP}, {TIME_FIELD_NAME_EXP}, filename, groupID, size, msgnum, foldername, vehicleID, experimentID",
+                        "ExpressionAttributeNames": { ID_FIELD_NAME_EXP: ID_FIELD_NAME , TIME_FIELD_NAME_EXP: TIME_FIELD_NAME},
+                    }
+            try:
+                done = False
+                start_key = None
+                while not done:
+                    if start_key:
+                        scan_kwargs["ExclusiveStartKey"] = start_key
+                    #response = metatable.query(KeyConditionExpression=Key('_id').eq('2aa5ca92-93ae-11ee-956e-9da2d070324c')
+                    #                           )#**scan_kwargs)
+                    response = metatable.scan(**scan_kwargs)
+                    items_scanned = items_scanned + response['ScannedCount']
+                    item_count = item_count = response['Count']
+                    #if(response['Count'] != 0):
+                    #    print(response['Items'][0])
+                    items.extend(response.get("Items", []))
+                    start_key = response.get("LastEvaluatedKey", None)
+                    #print(f"{start_key} / {items_scanned} - {len(items)} + {item_count}")
+                    done = start_key is None
+            except botocore.exceptions.ClientError as err:
+                logging.error(
+                        "Couldn't scan: Here's why: %s: %s",
+                        err.response["Error"]["Code"],
+                        err.response["Error"]["Message"],
+                    )
+            if(len(items)<=0):
+                return None
+            return items[0][ID_FIELD_NAME]
 
     def db_find_metadata_by_id(self, cname, key):
         #todo fix this for large returns, which should not happen when looking for SINGLE ID
@@ -353,11 +383,18 @@ class DatabaseDynamo(DatabaseInterface):
                 return result
             #except ClientError as err:
             except botocore.exceptions.ClientError as err:
+                logging.error(" ") #need to newline after progress bar
+                logging.error(f"putItemBatch error: {err.response['Error']['Code']}")
                 #botocore.errorfactory.ProvisionedThroughputExceededException as err:
-                if 'ProvisionedThroughputExceededException' not in err.response['Error']['Code']:
+                if('ValidationException' in err.response['Error']['Code']):
+                    #print(newdata)
+                    logging.info(f"ValidationException: {newdata['topic']} Going to retry")
+                elif 'ProvisionedThroughputExceededException' not in err.response['Error']['Code']:
                     raise
-                logging.info(f"throughput exceeded, sleeping for {self.throughputSleep} seconds")
-                time.sleep(self.throughputSleep)
+                else:
+                    logging.info(f"throughput exceeded, sleeping for {self.throughputSleep} seconds")
+                    time.sleep(self.throughputSleep)
+
             if(tries >= self.throughputExceededRepeat):
                 logging.info("too many attempts")
                 raise TimeoutError("Too many attempts")
@@ -476,6 +513,22 @@ class DatabaseDynamo(DatabaseInterface):
                                               }
                                           ],
                                           GlobalSecondaryIndexes=[
+                                            {
+                                                'IndexName': 'time-index',
+                                                'KeySchema': [
+                                                    {
+                                                       'AttributeName': 'time',
+                                                       'KeyType': 'HASH'
+                                                    },
+                                                ],
+                                                'Projection': {
+                                                    'ProjectionType': 'ALL',
+                                                },
+                                                'ProvisionedThroughput': {
+                                                    'ReadCapacityUnits': 5,
+                                                    'WriteCapacityUnits': 5,
+                                                }
+                                            },
                                             {
                                                 'IndexName': 'DataIndex',
                                                 'KeySchema': [

@@ -7,8 +7,8 @@
     "file":
     {
         "type": "cyber",
-        "folder": "/home/ubuntu/s3/TRC/VAN1/SmartCenter/202305041943/",
-        "filebase": "Van1_complex_nocam_run1.record"
+        "folder": "Deployment_2_SEOhio/Blue Route/TRCVan1/1685632020",
+        "filebase": "20230601110813.record."
     },
     "database":
     {
@@ -27,7 +27,10 @@
             "/apollo/sensor/camera/front_25mm/image",
             "/apollo/sensor/camera/front_25mm/image/compressed",
             "/apollo/sensor/velodyne32/PointCloud2",
+            "/apollo/sensor/velodyne/fusion/PointCloud2",
             "/apollo/sensor/velodyne32/VelodyneScan",
+            "/apollo/sensor/velodyne16/front/left/PointCloud2",
+            "/apollo/sensor/velodyne16/front/right/PointCloud2",
             "/apollo/planning",
             "/apollo/prediction",
             "/apollo/perception",
