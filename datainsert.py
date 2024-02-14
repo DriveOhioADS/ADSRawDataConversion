@@ -44,7 +44,7 @@ def main(args):
     #logging.basicConfig()
     logging.basicConfig(level = logging.INFO)
     logging.basicConfig(filename='insert.log', encoding='utf-8', level=logging.INFO)
-    logging.info("Welcome to the ADS data to database process - by Wilhelm")
+    logging.info("Welcome to the ADS data to database process - by Wilhelm - jwilhelm@ohio.edu")
     try:
         with open(args.config, 'r') as file:
             config = json.load(file)

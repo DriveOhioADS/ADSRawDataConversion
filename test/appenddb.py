@@ -45,6 +45,13 @@ def addtojson(fname, fix=False):
     if('Red Route' in jsondata['file']['folder']):
         jsondata['file']['folder']=jsondata['file']['folder'].replace('Red Route', 'RedRoute')
         dirty = True
+    if('/Green Route/' in jsondata['file']['folder']):
+        jsondata['file']['folder']=jsondata['file']['folder'].replace('Green Route', 'GreenRoute')
+        dirty = True
+    if('/Green/' in jsondata['file']['folder']):
+        jsondata['file']['folder']=jsondata['file']['folder'].replace('Green', 'GreenRoute')
+        dirty = True
+    
     if(not 'database' in jsondata):
         print(f"missing db line")
         jsondata.update(dblines)
@@ -68,6 +75,7 @@ def addtojson(fname, fix=False):
 
 root = "/home/jay/s3bucket/Deployment_2_SEOhio/Blue Route/OU Pacifica/*"
 root = "/home/jay/s3bucket/Deployment_2_SEOhio/RedRoute/OU Pacifica/*"
+root = "/home/jay/s3bucket/Deployment_2_SEOhio/GreenRoute/OU Pacifica/*"
 
 filelist = sorted(glob.glob(root))
 #print(filelist)
@@ -75,8 +83,13 @@ filelist = sorted(glob.glob(root))
 scriptlist = []
 for fname in filelist:
     morefiles = sorted(glob.glob(fname+"/*"))
+
     #print(morefiles)
+    print(f"Folder size: {len(morefiles)}")
     for mfname in morefiles:
+        fsize = os.stat(mfname).st_size 
+        if(fsize < 2e9):
+            print(f"{fsize}\t {mfname}")
         if(mfname.endswith(".json") and 'VanDrive_Comments' not in mfname):
             print(mfname)
             addtojson(mfname,fix=True)
