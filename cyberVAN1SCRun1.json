@@ -1,14 +1,14 @@
 {
     "metadata":{
-        "vehicleID": 2,
-        "experimentID": 1,
-        "other": "SmartCenter Testing"
+        "vehicleID": "hi",
+        "experimentID": "77",
+        "other": "test1"
     },
     "file":
     {
         "type": "cyber",
-        "folder": "Deployment_2_SEOhio/Blue Route/TRCVan1/1685632020",
-        "filebase": "20230601110813.record."
+        "folder": "/home/jay/s3bucket/Deployment_2_SEOhio/RedRoute/OU Pacifica/1695836794/",
+        "filebase": "20230927134634.record."
     },
     "database":
     {

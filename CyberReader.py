@@ -175,10 +175,14 @@ class CyberReader:
                 
                 prog.set_stat(msgcount)
                 prog.update()
-                
-                message_type = reader.GetMessageType(message.channel_name)
-                msg = pbfactory.GenerateMessageByType(message_type)
-                msg.ParseFromString(message.content)
+                try:
+                    message_type = reader.GetMessageType(message.channel_name)
+                    msg = pbfactory.GenerateMessageByType(message_type)
+                    msg.ParseFromString(message.content)
+                except KeyError:
+                    logging.info(f"error finding the message {message.channel_name}")
+                    continue
+
                 if(message.channel_name not in deny_channels and
                    message.channel_name in allow_channels):
                     try:

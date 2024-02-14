@@ -439,7 +439,7 @@ class DatabaseDynamo(DatabaseInterface):
             logging.info(newdata)
             logging.info(f"\nclient error on insert {ce}")
 
-            sys.exit()
+            sys.exit(-1)
         except TypeError as e:
             logging.info(f"\ntype error on insert {e}")
             #sys.exit()
