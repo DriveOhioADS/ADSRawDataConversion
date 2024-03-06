@@ -530,7 +530,7 @@ class DatabaseDynamo(DatabaseInterface):
                                                 }
                                             },
                                             {
-                                                'IndexName': 'DataIndex',
+                                                'IndexName': 'groupMetadataID-index',
                                                 'KeySchema': [
                                                     {
                                                        'AttributeName': 'groupMetadataID',
@@ -546,7 +546,7 @@ class DatabaseDynamo(DatabaseInterface):
                                                 }
                                             },
                                             {
-                                                'IndexName': 'TopicIndex',
+                                                'IndexName': 'topic-index',
                                                 'KeySchema': [
                                                     {
                                                        'AttributeName': 'topic',

@@ -29,8 +29,8 @@ class CyberReader:
     def ScanChannelFolder(self,fullfoldername):
         all_channels = []
         filelist = glob.glob(os.path.join(fullfoldername,self.basefilename+"*"))
-        print(os.path.join(fullfoldername,self.basefilename+"*"))
-        print(filelist)
+        logging.info(os.path.join(fullfoldername,self.basefilename+"*"))
+        logging.info(filelist)
         for file in filelist:
             new_channels = []
             new_channels = self.ScanChannelsSingleFile(file)
@@ -63,7 +63,7 @@ class CyberReader:
         logging.info("Scanning folder to get list of all channels:")
         all_channels = self.ScanChannelFolder(fullfoldername)
         for channel in all_channels:
-            print(channel)
+            logging.info(channel)
         
         logging.info("Inserting cyberdata from folder " + fullfoldername)
 

@@ -12,6 +12,7 @@ import glob
 import os 
 import jsonlines
 import hashlib
+from halo import Halo
 
 def ReadLiDARFile(filename):
     lidarfile = open(filename,'r')
@@ -88,7 +89,7 @@ def ProcessLidarMsg(msg, jsdata, channel_name, JLwriter):
     compressor = lzma.LZMACompressor()
     compressed_data = compressor.compress(lidarbytes)
     compressed_data += compressor.flush()
-    print(f"Raw {len(lidarbytes)} Compressed: {len(compressed_data)}")
+    #print(f"Raw {len(lidarbytes)} Compressed: {len(compressed_data)}")
     # gives binary base64
     b64data = base64.b64encode(compressed_data)  
     # ascii base64 for json storage
@@ -109,14 +110,21 @@ def ProcessLidarMsg(msg, jsdata, channel_name, JLwriter):
     JLwriter.write(jsdata)
 
 #filename = "../20230421153705.record.00000"
+def GenerateLiDARFileName(filename,root_dir) -> str:
+    file_count = filename[-5:] #assumes that the file ends with number
+    justfilename = os.path.basename(filename)
+    jsonfilename = justfilename.split(".")[0] #removes the 0000x extension
+    jsonfilename = os.path.join(root_dir,jsonfilename+f".{file_count:05}.jslines")
+    return jsonfilename
 
 def ProcessFile(file_path,root_dir='lidar',file_count=0):
     if(not os.path.isdir(root_dir)):
         os.mkdir(root_dir)
     filename = file_path
     justfilename = os.path.basename(filename)
-    jsonfilename = justfilename.split(".")[0] #removes the 0000x extension
-    jsonfilename = os.path.join(root_dir,jsonfilename+f".{file_count:05}.jslines")
+    # jsonfilename = justfilename.split(".")[0] #removes the 0000x extension
+    # jsonfilename = os.path.join(root_dir,jsonfilename+f".{file_count:05}.jslines")
+    jsonfilename=GenerateLiDARFileName(justfilename,root_dir)
     print(f"Making json file at: {jsonfilename}")
     lidarfile = open(jsonfilename,'w')
     JLwriter = jsonlines.Writer(lidarfile)
@@ -183,26 +191,50 @@ if __name__ == '__main__':
     # search = '20230424104410'
     # search = '20230424104814'
 
-
+    blueroute = ['1674155613', '1684334963', '1684354335', '1684733733', '1684733734', '1692815820', '1694450559', '1695054362', 
+                 '1695931464', '1696265320', '1696869055', '1697473456', '1697647842']
     # 2 lines for adding
-    folder_path = '/volumes/user/home/jay'
-    #folder_path = '/s3bucket/Deployment_2_SEOhio/Blue Route/OU Pacifica/1692815820/'
-    #search = '*.record.*'
+    #folder_path = '/volumes/user/home/jay'
+    folder_route = '/volumes/user/home/jay/s3bucket/Deployment_2_SEOhio/Blue Route/OU Pacifica/'
+    folders_data = glob.glob(folder_route+"*")
+    search = '*.record.*'
     # 2 lines for reading
-    search = '*.jslines'
+    # search = '*.jslines'
     # folder_path += "lidar" #add to read the lidar files
-
-    file_list = glob.glob(os.path.join(folder_path, search)) #+ glob.glob(os.path.join(folder_path, search))
-    file_list.sort()
-    print(file_list)
-    count = 0
-    numfiles = len(file_list)
-    for file_path in file_list:
-        print(f"{file_path} -> {count+1}/{numfiles}")
-        ReadLiDARFile(file_path)   
-        #jname = ProcessFile(file_path,root_dir=os.path.join(folder_path,"lidar"),file_count=count)
-        #AddFileHash(jname)
-        count = count + 1
+    #spinner = Halo(text='Processing LiDAR', spinner='dots')
+    #spinner.start()
+    
+    
+    
+    DoProcessing = not False
+    try:
+        # for brnum in blueroute:
+            
+        for folder_path in folders_data:
+            file_list = glob.glob(os.path.join(folder_path, search)) #+ glob.glob(os.path.join(folder_path, search))
+            file_list.sort()
+            #print(file_list)
+            count = 0
+            numfiles = len(file_list)
+            for file_path in file_list:
+                #ReadLiDARFile(file_path)   
+                justfilename = os.path.basename(file_path)
+                # jsonfilename = justfilename.split(".")[0] #removes the 0000x extension
+                # jsonfilename = os.path.join(root_dir,jsonfilename+f".{file_count:05}.jslines")
+                jsonfilename=GenerateLiDARFileName(justfilename,folder_path+'/lidar')
+                if(os.path.isfile(jsonfilename)):
+                    print(f"found & skipping {jsonfilename}")
+                elif(not DoProcessing):
+                    print(f"Needed {jsonfilename}")
+                else:
+                    print(f"{file_path} -> {count+1}/{numfiles}")
+                    jname = ProcessFile(file_path,root_dir=os.path.join(folder_path,"lidar"),file_count=count)
+                    AddFileHash(jname)
+                count = count + 1
+    except(KeyboardInterrupt, SystemExit):
+        #spinner.stop()
+        print("Exit")
+    #spinner.stop_and_persist(symbol='🦄'.encode('utf-8'), text='Done!')
 
 
 # df.to_csv(search+xyzname)#,  index=False, header=True) #mode='a',
