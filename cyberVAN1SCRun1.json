@@ -1,40 +1,48 @@
 {
-    "metadata":{
-        "vehicleID": "hi",
-        "experimentID": "77",
-        "other": "test1"
+    "metadata": {
+        "driver": "3",
+        "operator": "2",
+        "vehicleID": "Van1",
+        "Route": "Blue",
+        "Unix Time": "1693927674",
+        "experimentID": "1693927674",
+        "other": {
+            "Objective": "Single Vehicle",
+            "Weather_Lighting": "Clear",
+            "Weather_Precipitation": "No precipitation",
+            "MapVersion": "V2F",
+            "StackVersion": "1.2.2"
+        }
     },
-    "file":
-    {
+    "file": {
         "type": "cyber",
-        "folder": "/home/jay/s3bucket/Deployment_2_SEOhio/RedRoute/OU Pacifica/1695836794/",
-        "filebase": "20230927134634.record."
+        "folder": "Deployment_2_SEOhio/Blue Route/TRCVan1/1693501873",
+        "filebase": "20230831131352.record."
     },
-    "database":
-    {
+    "database": {
         "type": "dynamo",
         "uri": "http://localhost:8000",
-        "collection": "cyber",
-        "databasename": "cyber",
-        "metatablename": "meta",
+        "collection": "ads_passenger_processed",
+        "databasename": "ads_passenger_processed",
+        "metatablename": "ads_passenger_processed_metadata",
         "batch": true,
         "throughputSleep": 20
     },
-    "channelList":{
+    "channelList": {
         "deny": [
             "/apollo/sensor/camera/front_6mm/image",
             "/apollo/sensor/camera/front_6mm/image/compressed",
             "/apollo/sensor/camera/front_25mm/image",
             "/apollo/sensor/camera/front_25mm/image/compressed",
             "/apollo/sensor/velodyne32/PointCloud2",
-            "/apollo/sensor/velodyne/fusion/PointCloud2",
             "/apollo/sensor/velodyne32/VelodyneScan",
-            "/apollo/sensor/velodyne16/front/left/PointCloud2",
-            "/apollo/sensor/velodyne16/front/right/PointCloud2",
             "/apollo/planning",
             "/apollo/prediction",
             "/apollo/perception",
-            "/apollo/perception/obstacles"
+            "/apollo/perception/obstacles",
+            "/apollo/sensor/velodyne/fusion/PointCloud2",
+            "/apollo/sensor/velodyne16/front/left/PointCloud2",
+            "/apollo/sensor/velodyne16/front/right/PointCloud2"
         ]
     }
- }
+}

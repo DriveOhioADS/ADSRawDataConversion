@@ -191,11 +191,14 @@ if __name__ == '__main__':
     # search = '20230424104410'
     # search = '20230424104814'
 
-    blueroute = ['1674155613', '1684334963', '1684354335', '1684733733', '1684733734', '1692815820', '1694450559', '1695054362', 
-                 '1695931464', '1696265320', '1696869055', '1697473456', '1697647842']
+    #blueroute = ['1674155613', '1684334963', '1684354335', '1684733733', '1684733734', '1692815820', '1694450559', '1695054362', 
+    #             '1695931464', '1696265320', '1696869055', '1697473456', '1697647842']
     # 2 lines for adding
     #folder_path = '/volumes/user/home/jay'
-    folder_route = '/volumes/user/home/jay/s3bucket/Deployment_2_SEOhio/Blue Route/OU Pacifica/'
+    #folder_route = '/volumes/user/home/jay/s3bucket/Deployment_2_SEOhio/Blue Route/OU Pacifica/'
+    #folder_route = '/volumes/user/home/jay/s3bucket/Deployment_2_SEOhio/GreenRoute/OU Pacifica/'
+    folder_route = '/volumes/user/home/jay/s3bucket/Deployment_2_SEOhio/RedRoute/OU Pacifica/'
+
     folders_data = glob.glob(folder_route+"*")
     search = '*.record.*'
     # 2 lines for reading

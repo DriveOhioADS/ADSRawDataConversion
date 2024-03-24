@@ -26,7 +26,10 @@ import botocore.exceptions
 logging.getLogger('boto3').setLevel(logging.CRITICAL)
 logging.getLogger('botocore').setLevel(logging.CRITICAL)
 logging.getLogger('nose').setLevel(logging.CRITICAL)
-
+logging.getLogger('s3transfer').setLevel(logging.CRITICAL)
+for name in logging.Logger.manager.loggerDict.keys():
+    if ('boto' in name) or ('urllib3' in name):
+        logging.getLogger(name).setLevel(logging.WARNING)
 ID_FIELD_NAME = '_id'
 TIME_FIELD_NAME = 'time'
 
@@ -372,6 +375,9 @@ class DatabaseDynamo(DatabaseInterface):
         self.bwriter = self.ddb.Table(self.cname).batch_writer()
         return self.bwriter
     
+    def FlushBatch(self):
+        self.bwriter._flush()
+
     def db_putItemBatch(self, newdata):
         checkdata = DatabaseDynamo._prepDataForInsert(self.cname, newdata)
         result = None
@@ -443,7 +449,7 @@ class DatabaseDynamo(DatabaseInterface):
         except TypeError as e:
             logging.info(f"\ntype error on insert {e}")
             #sys.exit()
-
+        
     def CheckAllTables(self):
         tables = list(self.ddb.tables.all())
         logging.info(tables)

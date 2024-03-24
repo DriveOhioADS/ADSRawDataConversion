@@ -44,16 +44,7 @@ def main(args):
     #logging.basicConfig()
     #logging.basicConfig(level = logging.INFO)
     #logging.basicConfig(filename='insert.log', filemode='a', encoding='utf-8', level=logging.DEBUG)
-    logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    #filemode='a',
-    handlers=[
-        logging.FileHandler('insert.log','a'),
-        logging.StreamHandler()
-    ]
-    )
-    logging.info("Welcome to the ADS data to database process - by Wilhelm - jwilhelm@ohio.edu")
+    
     try:
         with open(args.config, 'r') as file:
             config = json.load(file)
@@ -146,6 +137,20 @@ def main(args):
     logging.info("All done")
       
 if __name__ == '__main__':
+    logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    #filemode='a',
+    handlers=[
+        logging.FileHandler('insert.log','a'),
+        logging.StreamHandler()
+    ]
+    )
+    logging.info("Welcome to the ADS data to database process - by Wilhelm - jwilhelm@ohio.edu")
+    logging.warning("Warning test")
+    logging.info("Info test")
+    logging.error("Error test")
+    logging.critical("Critical test")
     #logging.basicConfig(filename="insert.log", encoding='utf-8', level=logging.DEBUG)
     #logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
