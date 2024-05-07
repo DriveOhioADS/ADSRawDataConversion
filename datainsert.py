@@ -28,10 +28,7 @@ def ProcessCyberFile(cyberfolder, cyberfilebase, dbobject, channelList, metadata
             allow = channelList['allow']
         else:
             allow = None
-        channelList = {
-                    'deny': deny,
-                    'allow': allow
-                    }  
+        channelList = {'deny': deny,'allow': allow}
     cr.InsertDataFromFolder(dbobject, metadata, channelList, force, batch)   
     return 0
 

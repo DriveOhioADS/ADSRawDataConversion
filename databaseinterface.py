@@ -376,7 +376,9 @@ class DatabaseDynamo(DatabaseInterface):
         return self.bwriter
     
     def FlushBatch(self):
-        self.bwriter._flush()
+        return None
+        #flush appears to be broken, but it happens in the background when the object is released
+        #self.bwriter._flush()
 
     def db_putItemBatch(self, newdata):
         checkdata = DatabaseDynamo._prepDataForInsert(self.cname, newdata)
